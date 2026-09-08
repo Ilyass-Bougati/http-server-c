@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -Iinclude -MMD -MP
-SRCS = $(wildcard *.c) $(wildcard include/*.c)
+SRCS = $(wildcard *.c) $(wildcard include/*.c) $(wildcard vendor/*.c)
 OBJS = $(SRCS:.c=.o)
 DEPS = $(OBJS:.o=.d)
 

@@ -1,5 +1,7 @@
 #include "response.h"
+#include "cache.h"
 #include "stdlib.h"
+#include <stdbool.h>
 #include <string.h>
 #include "header.h"
 #include "utils.h"
@@ -21,21 +23,21 @@ http_static_page_response *create_response(int status_code, char* path)
 
 void send_http_static_page_response(http_request *req, http_static_page_response *res)
 {
-    // reading the index.html file
-    FILE *fptr;
     char *path = res->path;
-    fptr = fopen(path, "r");
-
-    if (fptr == NULL) {
-        fprintf(stderr, "Error opening %s\n", path);
+    bool cached = is_cached(path);
+    char *content;
+    size_t out_len;
+    if (cached) {
+        content = get_cached(path);
+        out_len = strlen(content);
+    } else {
+        content = read_file(path, &out_len);
+        cache(path, content);
     }
-
-    // getting the size of the file
-    long size = get_file_size(fptr);
 
     // sending the simple HTTP header
     basic_headers headers = {
-        .content_length = size,
+        .content_length = out_len,
         .content_type = "text/html",
         .status_code = res->status_code,
         .status_text = ""
@@ -44,13 +46,15 @@ void send_http_static_page_response(http_request *req, http_static_page_response
     char* formatted_header = basic_header_to_string(headers);
     write(req->client_fd, formatted_header, strlen(formatted_header));
 
-    char *page_line = (char *) calloc(sizeof(char), BUFFER_SIZE);
-    while(fgets(page_line, BUFFER_SIZE, fptr)) {
-        write(req->client_fd, page_line, strlen(page_line));
-    }
+    // char *page_line = (char *) calloc(sizeof(char), BUFFER_SIZE);
+    write(req->client_fd, content, out_len);
+
+    // while(fgets(page_line, BUFFER_SIZE, fptr)) {
+    //     write(req->client_fd, page_line, strlen(page_line));
+    // }
 
     free(req);
     free(res);
-    free(page_line);
+    // free(page_line);
     free(formatted_header);
 }
