@@ -15,4 +15,5 @@ void parse_request(int client_fd)
     req->client_fd = client_fd;
     log_http_req(req);
     global_req_handler(req);
+    free(request_string);
 }

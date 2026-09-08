@@ -50,5 +50,13 @@ void send_http_static_page_response(http_request *req, http_static_page_response
     }
 
     free(req);
+    free_response(res);
+    free(page_line);
+    free(formatted_header);
+}
+
+void free_response(http_static_page_response *res)
+{
+    free(res->path);
     free(res);
 }

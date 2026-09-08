@@ -13,6 +13,8 @@ typedef struct http_static_page_response {
 
 http_static_page_response *init_response();
 
-http_static_page_response *create_response(int status_code, char* path);
+http_static_page_response *create_response(int status_code, char *path);
+
+void free_response(http_static_page_response *res);
 
 void send_http_static_page_response(http_request *req, http_static_page_response *res);
