@@ -37,8 +37,8 @@ void send_http_static_page_response(http_request *req, http_static_page_response
     basic_headers headers = {
         .content_length = size,
         .content_type = "text/html",
-        .status_code = 200,
-        .status_text = "OK"
+        .status_code = res->status_code,
+        .status_text = ""
     };
 
     char* formatted_header = basic_header_to_string(headers);

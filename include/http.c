@@ -4,6 +4,19 @@
 #include <unistd.h>
 #include "request.h"
 #include "handler.h"
+#include "log.h"
+#include <pthread.h>
+#include <syscall.h>
+
+void *handle_request(void *arg)
+{
+    LOG_D("thread start, tid %d", (int)syscall(SYS_gettid));
+
+    int client_fd = *(int *)arg;
+    parse_request(client_fd);
+    free(arg);
+    return NULL;
+}
 
 void parse_request(int client_fd)
 {

@@ -1,6 +1,6 @@
 #include "request.h"
-#include <stdio.h>
 #include <stdlib.h>
+#include "log.h"
 
 http_request* init_request()
 {
@@ -10,5 +10,5 @@ http_request* init_request()
 
 void log_http_req(http_request* req)
 {
-    printf("%s %s %s\n", req->method, req->path, req->version);
+    LOG_I("%s %s %s", req->method, req->path, req->version);
 }

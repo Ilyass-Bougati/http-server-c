@@ -8,6 +8,7 @@
 #include "response.h"
 #include <sys/types.h>
 #include <sys/stat.h>
+#include "log.h"
 
 void render_page(http_request *req, int status_code, char* path) {
     http_static_page_response *res;
@@ -20,6 +21,7 @@ void global_req_handler(http_request* req)
     char *path;
 
     if (strcmp(req->path, "/") == 0) {
+        LOG_D("rendering index.html for /");
         path = SITE_DIR "/index.html";
         render_page(req, 200, path);
         return;
@@ -27,11 +29,13 @@ void global_req_handler(http_request* req)
         int path_size = strlen(SITE_DIR) + strlen(req->path) + 1;
         path = calloc(sizeof(char), path_size);
         snprintf(path, path_size, "%s%s", SITE_DIR, req->path);
+        LOG_D("rendering %s", path);
     }
 
     struct stat st;
     if (stat(path, &st) < 0 || !S_ISREG(st.st_mode)) {
         path = NOT_FOUND_PATH;
+        LOG_D("page not found, rendering %s", path);
         render_page(req, 404, path);
         return;
     }

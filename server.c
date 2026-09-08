@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <arpa/inet.h>
-#include "include/handler.h"
 #include "include/http.h"
+#include "include/log.h"
+
 
 int main(int argc, char *argv[]) {
     // assuring the user providede a port
@@ -55,13 +57,14 @@ int main(int argc, char *argv[]) {
         // accepting a connection
         client_fd = accept(server_fd, (struct sockaddr *)&address, &addr_len);
         if (client_fd < 0) {
-            perror("accept");
+            LOG_E("error accepting connection");
             continue;
         }
-        printf("Client connected from %s\n", inet_ntoa(address.sin_addr));
-
-        // global_req_handler(client_fd);
-        parse_request(client_fd);
+        int *pfd = malloc(sizeof *pfd);
+        *pfd = client_fd;
+        pthread_t tid;
+        pthread_create(&tid, NULL, handle_request, pfd);
+        pthread_detach(tid);
     }
 
     close(server_fd);
