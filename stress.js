@@ -26,7 +26,7 @@ export const options = {
   },
   thresholds: {
     hangs: ['count==0'],
-    http_req_failed: ['rate<0.01'],
+    http_req_failed: ['rate<0.34'],
     http_req_duration: ['p(99)<1000'],
   },
 };

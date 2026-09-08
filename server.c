@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
     }
 
     // listening
-    if (listen(server_fd, 1) < 0) {
+    if (listen(server_fd, 512) < 0) {
         perror("listen");
         exit(EXIT_FAILURE);
     }
