@@ -15,6 +15,7 @@ void *handle_request(void *arg)
     int client_fd = *(int *)arg;
     parse_request(client_fd);
     free(arg);
+    close(client_fd);
     return NULL;
 }
 

@@ -16,7 +16,7 @@ void cache(char *path, char *content)
     page->hash = fnv_32a_str(path, FNV1_32A_INIT);
     page->site_content = content;
 
-    __site_cache = (__site_page**) realloc(__site_cache, __cache_size + 1);
+    __site_cache = (__site_page**) realloc(__site_cache, (__cache_size + 1) * sizeof(__site_page *));
     if (__site_cache == NULL)
     {
         LOG_E("error caching page");

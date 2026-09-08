@@ -46,15 +46,9 @@ void send_http_static_page_response(http_request *req, http_static_page_response
     char* formatted_header = basic_header_to_string(headers);
     write(req->client_fd, formatted_header, strlen(formatted_header));
 
-    // char *page_line = (char *) calloc(sizeof(char), BUFFER_SIZE);
     write(req->client_fd, content, out_len);
-
-    // while(fgets(page_line, BUFFER_SIZE, fptr)) {
-    //     write(req->client_fd, page_line, strlen(page_line));
-    // }
 
     free(req);
     free(res);
-    // free(page_line);
     free(formatted_header);
 }

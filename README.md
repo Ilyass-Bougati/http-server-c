@@ -155,22 +155,27 @@ roughly a third of requests are deliberate 404s and the `rate<0.01` threshold on
 that metric is crossed on every run. It is not a useful pass/fail signal here.
 Judge a run by the checks and by `hangs`.
 
-For reference, a 30-second 50-user run on the current code gives around 31,000
-iterations, 100% of checks passing, and a p(99) request duration near 200ms, with
-a non-zero `hangs` count.
+For reference, a 30-second 50-user run on the current code gives around 144,000
+requests at roughly 4,500 per second, 100% of checks passing, and a p(99) request
+duration near 1.3ms. `hangs` lands in the single digits rather than at 0, and the
+process does not always survive the full run; see Known limits.
 
 ## Known limits
 
 The server is deliberately small and has rough edges worth knowing about before
 you lean on it:
 
-* Client sockets are never closed after a response is written, so the process
-  accumulates one file descriptor per request served and will eventually hit its
-  `RLIMIT_NOFILE`. This is what a long or repeated stress run runs into.
+* The page cache overflows its own allocation. `cache()` grows `__site_cache`
+  with `realloc(__site_cache, __cache_size + 1)`, which sizes the block in bytes
+  where it means pointers, then writes an 8-byte pointer into it. That is a heap
+  buffer overflow from the very first entry onward, and it can take the process
+  down mid-run. Under load this is currently the first thing to break.
+* The page cache also has no lock, and every connection is served on its own
+  thread, so concurrent first-time requests race on it.
 * The listen backlog is 1, so connections arriving in a burst can be dropped
-  before the accept loop reaches them.
-* The page cache has no lock, and every connection is served on its own thread, so
-  concurrent first-time requests race on it.
+  before the accept loop reaches them. Under the stress test the kernel reports
+  `Possible SYN flooding on port 0.0.0.0:8080` and falls back to SYN cookies,
+  which is where the residual `hangs` come from.
 * Requests larger than 8192 bytes (`REQUEST_BUFFER_SIZE`) are truncated, and only
   the request line is parsed.
 * Every response is labelled `text/html` regardless of the file being served.
