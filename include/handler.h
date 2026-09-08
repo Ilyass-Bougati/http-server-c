@@ -1,8 +1,5 @@
 #pragma once
 #include <stdio.h>
+#include "request.h"
 
-#define BUFFER_SIZE 1024
-
-void global_req_handler(int client_fd);
-
-long get_file_size(FILE *fptr);
+void global_req_handler(http_request* req);

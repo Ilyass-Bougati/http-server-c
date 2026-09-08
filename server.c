@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include "include/handler.h"
+#include "include/http.h"
 
 int main(int argc, char *argv[]) {
     // assuring the user providede a port
@@ -59,7 +60,8 @@ int main(int argc, char *argv[]) {
         }
         printf("Client connected from %s\n", inet_ntoa(address.sin_addr));
 
-        global_req_handler(client_fd);
+        // global_req_handler(client_fd);
+        parse_request(client_fd);
     }
 
     close(server_fd);
