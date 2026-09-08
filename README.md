@@ -151,31 +151,73 @@ finished with.
 
 One caveat on `http_req_failed`. k6 counts any non-2xx response as a failed
 request, and this script asks for a missing page on one iteration in three, so
-roughly a third of requests are deliberate 404s and the `rate<0.01` threshold on
-that metric is crossed on every run. It is not a useful pass/fail signal here.
-Judge a run by the checks and by `hangs`.
+the metric sits at roughly 33% on a perfectly healthy run. The threshold is
+`rate<0.34` to accommodate that, which means it only fires on failures well past
+the deliberate 404s. Judge a run by the checks and by `hangs`.
 
-For reference, a 30-second 50-user run on the current code gives around 144,000
-requests at roughly 4,500 per second, 100% of checks passing, and a p(99) request
-duration near 1.3ms. `hangs` lands in the single digits rather than at 0, and the
-process does not always survive the full run; see Known limits.
+For reference, a 30-second 50-user run on the current code gave around 118,000
+requests at roughly 3,900 per second, 100% of checks passing, `hangs` at 0, and
+the server still alive at the end. Throughput and latency swing a lot between
+runs, since k6 and the server share the same cores and every request writes a
+log line.
 
 ## Known limits
 
-The server is deliberately small and has rough edges worth knowing about before
-you lean on it:
+The server is deliberately small, and the list below is what breaks when you
+lean on it. All of it was reproduced against the current code. Treat it as a
+development server and do not expose it.
 
-* The page cache overflows its own allocation. `cache()` grows `__site_cache`
-  with `realloc(__site_cache, __cache_size + 1)`, which sizes the block in bytes
-  where it means pointers, then writes an 8-byte pointer into it. That is a heap
-  buffer overflow from the very first entry onward, and it can take the process
-  down mid-run. Under load this is currently the first thing to break.
-* The page cache also has no lock, and every connection is served on its own
-  thread, so concurrent first-time requests race on it.
-* The listen backlog is 1, so connections arriving in a burst can be dropped
-  before the accept loop reaches them. Under the stress test the kernel reports
-  `Possible SYN flooding on port 0.0.0.0:8080` and falls back to SYN cookies,
-  which is where the residual `hangs` come from.
-* Requests larger than 8192 bytes (`REQUEST_BUFFER_SIZE`) are truncated, and only
-  the request line is parsed.
-* Every response is labelled `text/html` regardless of the file being served.
+### Ways to kill the process
+
+* A client that disconnects before reading the reply takes the whole server
+  down. `SIGPIPE` is never ignored and the body goes out through a plain
+  `write()` in `include/response.c`, so writing to a socket the peer has already
+  closed terminates the process, not just the thread.
+* A path longer than 2047 bytes corrupts the heap. `parse_request()` runs
+  `sscanf` with no field widths into `method[8]`, `path[2048]` and `version[8]`
+  from an 8192-byte buffer, so a long path runs off the end of the struct. The
+  process aborts on the next allocation with `malloc(): invalid size`.
+* A file that passes `stat` but will not open poisons the cache. `read_file()`
+  returns NULL, and `send_http_static_page_response()` neither checks it nor
+  initialises `out_len`: the first request answers 200 with a garbage length and
+  caches NULL, and the second segfaults in `strlen(NULL)`.
+* A connection that closes without sending is served from uninitialised memory.
+  `read()`'s return value is unchecked and `init_request()` does not zero its
+  allocation, so `sscanf` matches nothing and the server logs and routes on heap
+  garbage.
+
+### Security
+
+* Nothing keeps the served path inside `site/`. `global_req_handler()`
+  concatenates the request path onto `SITE_DIR` and calls `stat`, so
+  `GET /../server.c` returns the source file, and every regular file the process
+  can read is reachable the same way.
+* Nothing resists a client trying to be expensive: no request rate limit, no
+  timeouts, no cap on threads.
+
+### Concurrency
+
+* The page cache has no lock. Every connection runs on its own thread, and
+  `cache()` reallocs `__site_cache` and increments `__cache_size`
+  unsynchronised, so concurrent first-time requests for an uncached path race on
+  the array.
+* Reads and writes have no timeout, so a client that connects and never sends
+  holds a thread until it goes away on its own.
+* Every connection gets a detached thread with no ceiling, so what limits load
+  is thread creation rather than anything the server decides.
+
+### Protocol and caching
+
+* Requests over 8192 bytes (`REQUEST_BUFFER_SIZE`) are truncated, only the
+  request line is parsed, and one `read()` per connection means a request line
+  split across TCP segments is never reassembled.
+* The method is parsed and then ignored: `POST /index.html` gets the same 200
+  and the same body as `GET`.
+* Every response is labelled `text/html` whatever the file holds, the reason
+  phrase is always empty, and `Connection: close` is the only mode.
+* Cache entries are keyed by a 32-bit FNV-1a hash and the path is never stored,
+  so lookups compare hashes and a collision serves the wrong body. Entries are
+  never invalidated or freed, which is why editing an already-requested file
+  needs a restart.
+* Every 404 leaks its path buffer: `global_req_handler()` overwrites the
+  `calloc`ed `path` with `NOT_FOUND_PATH` before rendering, and never frees it.
