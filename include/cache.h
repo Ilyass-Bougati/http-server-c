@@ -31,14 +31,6 @@ void cache(char *path, char *content);
  */
 char *get_cached(char* path);
 
-/*
- * Tests whether a string hashes to a given FNV-1a value.
- * string: NUL-terminated string to hash.
- * hash:   the 32-bit FNV-1a value to compare against.
- * Returns true when they match. Note this is a hash comparison, so a
- * collision reports true for two different strings.
- */
-bool fnv_equal(char *string, Fnv32_t hash);
 
 /*
  * Reports whether `path` currently has an entry in the cache.
