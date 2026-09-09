@@ -2,6 +2,7 @@
 #include "cache.h"
 #include "stdlib.h"
 #include <stdbool.h>
+#include <stddef.h>
 #include <string.h>
 #include "header.h"
 #include "utils.h"
@@ -24,15 +25,13 @@ http_static_page_response *create_response(int status_code, char* path)
 void send_http_static_page_response(http_request *req, http_static_page_response *res)
 {
     char *path = res->path;
-    bool cached = is_cached(path);
-    char *content;
+    char *content = get_cached(path);
     size_t out_len;
-    if (cached) {
-        content = get_cached(path);
-        out_len = strlen(content);
-    } else {
+    if (content == NULL) {
         content = read_file(path, &out_len);
         cache(path, content);
+    } else {
+        out_len = strlen(content);
     }
 
     // sending the simple HTTP header
