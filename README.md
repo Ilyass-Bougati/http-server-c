@@ -6,7 +6,8 @@ bodies in an in-memory cache keyed by FNV-1a hash of the request path.
 
 ## Requirements
 
-* A C compiler (`gcc` or `clang`) and `make`
+* A C compiler (`gcc` or `clang`), [CMake](https://cmake.org/) 3.16 or newer,
+  and a build tool for it (`ninja` or `make`)
 * A POSIX system with pthreads (developed and tested on Linux)
 * [k6](https://k6.io/) for the load test, optional
 
@@ -14,23 +15,75 @@ No external libraries are needed. The only vendored code is the FNV hash in `ven
 
 ## Build
 
+Configure once, then build. Everything generated lands in `build/`, which is
+ignored by git; deleting that directory is the full clean.
+
 ```bash
-make
+cmake -S . -B build
 ```
 
-That produces a `server` binary in the repo root. `make clean` removes the binary,
-the object files, and the generated dependency files.
+```bash
+cmake --build build
+```
 
-The build is warning-clean under `-Wall -Wextra`. Object files are compiled with
-`-MMD -MP`, so headers are tracked as dependencies and touching one triggers the
-right rebuilds.
+That produces `build/server`. Pass `-G Ninja` to the configure step for a faster
+incremental build if you have ninja installed. After the first configure, only the
+build command is needed; CMake re-runs itself when `CMakeLists.txt` changes, and
+the source list uses `CONFIGURE_DEPENDS`, so a new `.c` dropped into `src/` or
+`vendor/` is picked up without reconfiguring by hand.
+
+The build is warning-clean under `-Wall -Wextra`. Header dependencies are tracked
+automatically, so touching a header rebuilds exactly what depends on it.
+
+`CMAKE_BUILD_TYPE` defaults to `Debug`. For an optimised binary, configure a
+second directory rather than overwriting the first:
+
+```bash
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release && cmake --build build-release
+```
+
+### Editor integration
+
+The configure step writes `build/compile_commands.json`, which is how clangd and
+the VS Code C/C++ extension learn that headers live in `include/`. Without it they
+cannot resolve `#include "cache.h"` from a file in `src/`, and every symbol
+declared in that header shows up as an error even though the build is clean.
+
+clangd finds the file on its own if you point it at the build directory, or symlink
+it to where clangd looks by default:
+
+```bash
+ln -sf build/compile_commands.json compile_commands.json
+```
+
+### Sanitizers
+
+`-DSANITIZE=` builds with a sanitizer attached: `address`, `thread`, `undefined`,
+or `none` (the default). ThreadSanitizer is the one worth reaching for here, since
+the page cache is written without a lock and TSan reports that race directly.
+Sanitizers cannot be combined, so use one build directory per sanitizer:
+
+```bash
+cmake -S . -B build-tsan -DSANITIZE=thread && cmake --build build-tsan
+```
+
+Then drive it with the k6 burst scenario below and read the report on stderr.
 
 ## Run
 
-The port is a required argument; there is no default.
+The port is a required argument; there is no default. The server resolves `site/`
+against its working directory, so start it from the project root, not from inside
+`build/`.
 
 ```bash
-./server 8080
+./build/server 8080
+```
+
+There is also a `run` target that builds first and sets the working directory for
+you, hardcoded to port 8080:
+
+```bash
+cmake --build build --target run
 ```
 
 The server prints a startup line to stdout and then logs every request to stderr:
@@ -38,8 +91,8 @@ The server prints a startup line to stdout and then logs every request to stderr
 ```
 Server listening on port 8080...
 
-2026-09-08 21:42:30 [INFO] include/request.c:13: GET /index.html HTTP/1.1
-2026-09-08 21:42:30 [DEBUG] include/handler.c:32: rendering ./site/index.html
+2026-09-08 21:42:30 [INFO] src/request.c:13: GET /index.html HTTP/1.1
+2026-09-08 21:42:30 [DEBUG] src/handler.c:32: rendering ./site/index.html
 ```
 
 Log verbosity is controlled by `log_min` in `include/log.h`, which defaults to
@@ -69,21 +122,30 @@ restart the server after editing a file you have already requested.
 
 ## Layout
 
+Headers live in `include/`, implementation in `src/`. Each `.c` in `src/` pairs
+with the header of the same name.
+
 ```
+CMakeLists.txt    build definition
 server.c          socket setup, accept loop, thread spawn
-include/
-  http.[ch]       reads a request off the socket and parses the request line
-  request.[ch]    the http_request struct and its logging
-  handler.[ch]    maps a request path to a file under site/
-  response.[ch]   loads the file and writes header plus body to the socket
-  header.[ch]     renders the response header block
-  cache.[ch]      in-memory page cache keyed by FNV-1a hash of the path
-  utils.[ch]      whole-file reads
-  log.h           header-only levelled logger with LOG_D/I/W/E macros
+include/ + src/
+  http            reads a request off the socket and parses the request line
+  request         the http_request struct and its logging
+  handler         maps a request path to a file under site/
+  response        loads the file and writes header plus body to the socket
+  header          renders the response header block
+  cache           in-memory page cache keyed by FNV-1a hash of the path
+  utils           whole-file reads
+  log.h           header-only levelled logger, no .c of its own
 vendor/fnv.[ch]   FNV-1a hash
 site/             the documents that get served
 stress.js         k6 load test
+build/            generated; not in git
 ```
+
+Both `include/` and the project root are on the include path, so a source file
+reaches a sibling header as `#include "cache.h"` and the vendored hash as
+`#include "vendor/fnv.h"`, with no relative `../` paths.
 
 Each header carries a comment above every prototype describing what the function
 does, what each argument means, and what comes back, including which pointers the
@@ -102,7 +164,7 @@ Install k6 first if you do not have it. On Debian or Ubuntu, follow the
 Start the server in one terminal, then run the test in another:
 
 ```bash
-./server 8080
+./build/server 8080
 ```
 
 ```bash
