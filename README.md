@@ -169,10 +169,6 @@ development server and do not expose it.
 
 ### Ways to kill the process
 
-* A client that disconnects before reading the reply takes the whole server
-  down. `SIGPIPE` is never ignored and the body goes out through a plain
-  `write()` in `include/response.c`, so writing to a socket the peer has already
-  closed terminates the process, not just the thread.
 * A path longer than 2047 bytes corrupts the heap. `parse_request()` runs
   `sscanf` with no field widths into `method[8]`, `path[2048]` and `version[8]`
   from an 8192-byte buffer, so a long path runs off the end of the struct. The

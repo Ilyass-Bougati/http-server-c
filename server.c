@@ -2,12 +2,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
 #include <arpa/inet.h>
 #include "include/http.h"
 #include "include/log.h"
 
-
 int main(int argc, char *argv[]) {
+    signal(SIGPIPE, SIG_IGN);
+
     // assuring the user providede a port
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <port>\n", argv[0]);
