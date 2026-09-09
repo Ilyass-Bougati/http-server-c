@@ -25,7 +25,7 @@ void parse_request(int client_fd)
     read(client_fd, request_string, REQUEST_BUFFER_SIZE);
 
     http_request* req = init_request();
-    sscanf(request_string, "%s %s %s", req->method, req->path, req->version);
+    sscanf(request_string, "%7s %2047s %7s", req->method, req->path, req->version);
     req->client_fd = client_fd;
     log_http_req(req);
     global_req_handler(req);

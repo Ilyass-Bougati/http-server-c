@@ -169,10 +169,6 @@ development server and do not expose it.
 
 ### Ways to kill the process
 
-* A path longer than 2047 bytes corrupts the heap. `parse_request()` runs
-  `sscanf` with no field widths into `method[8]`, `path[2048]` and `version[8]`
-  from an 8192-byte buffer, so a long path runs off the end of the struct. The
-  process aborts on the next allocation with `malloc(): invalid size`.
 * A file that passes `stat` but will not open poisons the cache. `read_file()`
   returns NULL, and `send_http_static_page_response()` neither checks it nor
   initialises `out_len`: the first request answers 200 with a garbage length and
