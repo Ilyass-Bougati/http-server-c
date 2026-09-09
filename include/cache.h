@@ -7,10 +7,10 @@
  * maps to. The path itself is not kept, only its hash, so lookups compare
  * hashes rather than strings.
  */
-typedef struct __site_page {
+typedef struct site_page {
     Fnv32_t hash;
     char* site_content;
-} __site_page;
+} site_page;
 
 
 /*

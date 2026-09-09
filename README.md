@@ -59,8 +59,9 @@ ln -sf build/compile_commands.json compile_commands.json
 ### Sanitizers
 
 `-DSANITIZE=` builds with a sanitizer attached: `address`, `thread`, `undefined`,
-or `none` (the default). ThreadSanitizer is the one worth reaching for here, since
-the page cache is written without a lock and TSan reports that race directly.
+or `none` (the default). ThreadSanitizer is the one worth reaching for here: every
+connection runs on its own thread, so it is the tool that proves shared state is
+actually synchronised rather than merely appearing to work under load.
 Sanitizers cannot be combined, so use one build directory per sanitizer:
 
 ```bash
@@ -68,6 +69,32 @@ cmake -S . -B build-tsan -DSANITIZE=thread && cmake --build build-tsan
 ```
 
 Then drive it with the k6 burst scenario below and read the report on stderr.
+
+On Linux 6.5 and newer, a sanitized binary may abort at startup with:
+
+```
+FATAL: ThreadSanitizer: unexpected memory mapping 0x...
+```
+
+That is a kernel/sanitizer mismatch, not a bug in the server. These kernels raised
+`vm.mmap_rnd_bits` to 32, which can place the binary outside the fixed address
+ranges the sanitizer runtime reserves for its shadow memory. Disable address-space
+randomization for that one process:
+
+```bash
+setarch -R ./build-tsan/server 8080
+```
+
+The system-wide alternative, `sudo sysctl -w vm.mmap_rnd_bits=28`, needs root and
+weakens ASLR for every process on the machine, so prefer `setarch`.
+
+Start it from the project root either way, since `site/` is resolved against the
+working directory. To keep the sanitizer's report separate from the server's own
+stderr logging, send it to its own file:
+
+```bash
+TSAN_OPTIONS="log_path=tsan" setarch -R ./build-tsan/server 8080
+```
 
 ## Run
 
@@ -251,10 +278,6 @@ development server and do not expose it.
 
 ### Concurrency
 
-* The page cache has no lock. Every connection runs on its own thread, and
-  `cache()` reallocs `__site_cache` and increments `__cache_size`
-  unsynchronised, so concurrent first-time requests for an uncached path race on
-  the array.
 * Reads and writes have no timeout, so a client that connects and never sends
   holds a thread until it goes away on its own.
 * Every connection gets a detached thread with no ceiling, so what limits load
