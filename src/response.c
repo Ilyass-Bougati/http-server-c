@@ -49,5 +49,6 @@ void send_http_static_page_response(http_request *req, http_static_page_response
 
     free(req);
     free(res);
+    free(content);
     free(formatted_header);
 }

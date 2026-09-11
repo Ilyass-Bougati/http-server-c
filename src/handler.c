@@ -34,6 +34,7 @@ void global_req_handler(http_request* req)
 
     struct stat st;
     if (stat(path, &st) < 0 || !S_ISREG(st.st_mode)) {
+        free(path);
         path = NOT_FOUND_PATH;
         LOG_D("page not found, rendering %s", path);
         render_page(req, 404, path);

@@ -3,6 +3,7 @@
 #include "log.h"
 #include <pthread.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define hash_str(string) fnv_32a_str((string), FNV1_32A_INIT)
 
@@ -19,24 +20,24 @@ static pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
  */
 static bool is_cached_hash(Fnv32_t hash)
 {
-    pthread_mutex_lock(&m);
     for (int i = 0; i < cache_size; i++)
     {
         if (hash == site_cache[i]->hash)
         {
-            pthread_mutex_unlock(&m);
             return true;
         }
     }
 
-    pthread_mutex_unlock(&m);
     return false;
 }
 
 void cache(char *path, char *content)
 {
     Fnv32_t hash = hash_str(path);
+
+    pthread_mutex_lock(&m);
     if (is_cached_hash(hash)) {
+        pthread_mutex_unlock(&m);
         return;
     }
 
@@ -44,7 +45,6 @@ void cache(char *path, char *content)
     page->hash = hash;
     page->site_content = content;
 
-    pthread_mutex_lock(&m);
     site_cache = (site_page**) realloc(site_cache, (cache_size + 1) * sizeof(site_page *));
     if (site_cache == NULL)
     {
@@ -83,8 +83,9 @@ char *get_cached(char* path)
     {
         if (hash == site_cache[i]->hash)
         {
+            char *content = strdup(site_cache[i]->site_content);
             pthread_mutex_unlock(&m);
-            return site_cache[i]->site_content;
+            return content;
         }
     }
 
