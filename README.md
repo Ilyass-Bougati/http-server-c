@@ -21,17 +21,7 @@ the newest release, and each release also gets its version as a tag (`1.0.0`).
 docker run --rm -p 8080:8080 ghcr.io/ilyass-bougati/http-server-c:latest
 ```
 
-The server inside the container always listens on 8080 — the port is baked into
-the entrypoint and the binary takes exactly one argument — so change the host side
-of `-p` to serve somewhere else:
-
-```bash
-docker run --rm -p 9000:8080 ghcr.io/ilyass-bougati/http-server-c:latest
-```
-
-The image is `FROM scratch` with a statically linked binary and the contents of
-`site/` copied in, so it has no shell and nothing else to configure. To serve your
-own pages without rebuilding, mount a directory over `/site`:
+To serve your own pages without rebuilding, mount a directory over `/site`:
 
 ```bash
 docker run --rm -p 8080:8080 -v "$PWD/site:/site" ghcr.io/ilyass-bougati/http-server-c:latest
@@ -111,11 +101,11 @@ Log verbosity is controlled by `log_min` in `include/log.h`, which defaults to
 
 Routing rules:
 
-| Request path | Served file | Status |
-|---|---|---|
-| `/` | `site/index.html` | 200 |
-| `/<name>` | `site/<name>` if it is an existing regular file | 200 |
-| anything else | `site/not_found.html` | 404 |
+| Request path  | Served file                                     | Status |
+| ------------- | ----------------------------------------------- | ------ |
+| `/`           | `site/index.html`                               | 200    |
+| `/<name>`     | `site/<name>` if it is an existing regular file | 200    |
+| anything else | `site/not_found.html`                           | 404    |
 
 Every response is sent as `text/html` with a `Content-Length` and
 `Connection: close`. Only the request line is parsed; request headers are read off
