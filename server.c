@@ -20,6 +20,11 @@ int main(int argc, char *argv[])
 
     // handling options
     int port = 8080;
+    char *log_level_string = getenv("LOG_LEVEL");
+    if (log_level_string == NULL)
+    {
+        log_level_string = "INFO";
+    }
     int c;
     while ((c = getopt_long(argc, argv, "p:l:h", opts, NULL)) != -1)
     {
@@ -29,19 +34,20 @@ int main(int argc, char *argv[])
             port = atoi(optarg);
             break;
         case 'l':
-            if (strcmp(optarg, "DEBUG") == 0)
+            log_level_string = optarg;
+            if (strcmp(log_level_string, "DEBUG") == 0)
             {
                 change_log_level(LOG_DEBUG);
             }
-            else if (strcmp(optarg, "INFO") == 0)
+            else if (strcmp(log_level_string, "INFO") == 0)
             {
                 change_log_level(LOG_INFO);
             }
-            else if (strcmp(optarg, "WARN") == 0)
+            else if (strcmp(log_level_string, "WARN") == 0)
             {
                 change_log_level(LOG_WARN);
             }
-            else if (strcmp(optarg, "ERROR") == 0)
+            else if (strcmp(log_level_string, "ERROR") == 0)
             {
                 change_log_level(LOG_ERROR);
             }
@@ -99,7 +105,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    LOG_I("Server is listening on port %s%d%s\n", ANSI_BOLD ANSI_FG_CYAN, port, ANSI_RESET);
+    LOG_I("Server is listening on port %s%d%s", ANSI_BOLD ANSI_FG_CYAN, port, ANSI_RESET);
 
     while (1)
     {

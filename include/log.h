@@ -3,6 +3,8 @@
 #include <stdarg.h>
 #include <time.h>
 
+#define LOG_PATH server.log
+
 /* Severity levels, ordered from least to most severe. */
 typedef enum
 {

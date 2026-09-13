@@ -1,7 +1,9 @@
 #include "log.h"
 #include "color.h"
+#include <stdio.h>
 
 log_level log_min = LOG_INFO;
+FILE *log_file = NULL;
 
 void change_log_level(log_level level)
 {
@@ -11,10 +13,15 @@ void change_log_level(log_level level)
 void log_write(log_level lvl, const char *file, int line,
                const char *fmt, ...)
 {
-    static const char *names[] = {ANSI_BOLD ANSI_FG_YELLOW "[DEBUG]" ANSI_RESET,
-                                  ANSI_BOLD ANSI_FG_CYAN "[INFO]" ANSI_RESET,
-                                  ANSI_BOLD ANSI_FG_256(208) "[WARN]" ANSI_RESET,
-                                  ANSI_BOLD ANSI_FG_RED "[ERROR]" ANSI_RESET};
+
+    if (log_file == NULL)
+    {
+        log_file = fopen("server.log", "a");
+    }
+    static const char *names[] = {"[DEBUG]" ANSI_RESET,
+                                  "[INFO]" ANSI_RESET,
+                                  "[WARN]" ANSI_RESET,
+                                  "[ERROR]" ANSI_RESET};
 
     static const char *colors[] = {ANSI_BOLD ANSI_FG_YELLOW,
                                    ANSI_BOLD ANSI_FG_CYAN,
@@ -36,5 +43,7 @@ void log_write(log_level lvl, const char *file, int line,
     localtime_r(&t, &tm);
     strftime(ts, sizeof ts, "%Y-%m-%d %H:%M:%S", &tm);
 
-    fprintf(stdout, "%s %s %s %s:%d: %s\n", colors[lvl], ts, names[lvl], file, line, msg);
+    fprintf(stderr, "%s %s %s %s:%d: %s\n", colors[lvl], ts, names[lvl], file, line, msg);
+    fprintf(log_file, "%s %s %s %s:%d: %s\n", colors[lvl], ts, names[lvl], file, line, msg);
+    fflush(log_file);
 }
