@@ -19,3 +19,5 @@ long get_file_size(FILE *fptr);
  * regular file, or could not be read in full.
  */
 char *read_file(const char *path, size_t *out_len);
+
+void print_program_name();

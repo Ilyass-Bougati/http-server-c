@@ -2,7 +2,7 @@ FROM debian:bookworm AS build
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential cmake
 WORKDIR /src
 COPY . .
-RUN cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-static"
+RUN cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-static" -DBUILD_TESTING=OFF
 RUN cmake --build build
 
 FROM scratch

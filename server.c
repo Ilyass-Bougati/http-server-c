@@ -6,20 +6,59 @@
 #include <arpa/inet.h>
 #include "include/http.h"
 #include "include/log.h"
+#include "include/opt.h"
+#include "include/color.h"
+#include "include/utils.h"
 #include <string.h>
+#include <getopt.h>
 
 int main(int argc, char *argv[])
 {
     signal(SIGPIPE, SIG_IGN);
 
-    // assuring the user providede a port
-    if (argc != 2)
+    print_program_name();
+
+    // handling options
+    int port = 8080;
+    int c;
+    while ((c = getopt_long(argc, argv, "p:l:h", opts, NULL)) != -1)
     {
-        fprintf(stderr, "Usage: %s <port>\n", argv[0]);
-        exit(EXIT_FAILURE);
+        switch (c)
+        {
+        case 'p':
+            port = atoi(optarg);
+            break;
+        case 'l':
+            if (strcmp(optarg, "DEBUG") == 0)
+            {
+                change_log_level(LOG_DEBUG);
+            }
+            else if (strcmp(optarg, "INFO") == 0)
+            {
+                change_log_level(LOG_INFO);
+            }
+            else if (strcmp(optarg, "WARN") == 0)
+            {
+                change_log_level(LOG_WARN);
+            }
+            else if (strcmp(optarg, "ERROR") == 0)
+            {
+                change_log_level(LOG_ERROR);
+            }
+            else
+            {
+                fprintf(stderr, "Unknown log leve %s\nuse %s -h\n", optarg, argv[0]);
+                exit(1);
+            }
+            break;
+        case 'h':
+            usage(argv[0]);
+            return 0;
+        case '?':
+            return 1; /* getopt already printed the error */
+        }
     }
 
-    int port = atoi(argv[1]);
     if (port <= 0 || port > 65535)
     {
         fprintf(stderr, "Invalid port: %s\n", argv[1]);
@@ -60,7 +99,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    printf("Server listening on port %d...\n\n", port);
+    LOG_I("Server is listening on port %s%d%s\n", ANSI_BOLD ANSI_FG_CYAN, port, ANSI_RESET);
 
     while (1)
     {
