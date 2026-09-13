@@ -25,27 +25,39 @@ file(GLOB APP_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/vendor/*.c")
 
-add_executable(server
-    server.c
-    ${APP_SOURCES})
+# Threads::Threads adds -pthread at both compile and link, rather than relying on
+# glibc 2.34+ folding pthread into libc.
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
-target_compile_features(server PRIVATE c_std_11)
+# Everything except main() lives in an object library so the test binaries can
+# link the very same objects the server does, instead of recompiling the tree
+# with their own flags. server.c stays out of it: Criterion brings its own main.
+add_library(server_core OBJECT ${APP_SOURCES})
+
+# PUBLIC throughout, so anything linking server_core inherits the include paths,
+# the language level and -pthread without repeating them.
+target_compile_features(server_core PUBLIC c_std_11)
 
 # include/ makes "cache.h" resolve from any source file; the project root makes
 # "vendor/fnv.h" resolve without a ../ climb out of the including file's dir.
-target_include_directories(server PRIVATE
+target_include_directories(server_core PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}")
+
+target_compile_options(server_core PRIVATE
+    $<$<C_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra>
+    $<$<C_COMPILER_ID:MSVC>:/W4>)
+
+target_link_libraries(server_core PUBLIC Threads::Threads)
+
+add_executable(server server.c)
 
 target_compile_options(server PRIVATE
     $<$<C_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra>
     $<$<C_COMPILER_ID:MSVC>:/W4>)
 
-# Threads::Threads adds -pthread at both compile and link, rather than relying on
-# glibc 2.34+ folding pthread into libc.
-set(THREADS_PREFER_PTHREAD_FLAG ON)
-find_package(Threads REQUIRED)
-target_link_libraries(server PRIVATE Threads::Threads)
+target_link_libraries(server PRIVATE server_core)
 
 # -DSANITIZE=address|thread|undefined|none (default none). ThreadSanitizer is the
 # one that finds the unsynchronised page cache; it cannot be combined with
@@ -58,9 +70,17 @@ if(NOT SANITIZE STREQUAL "none")
         message(FATAL_ERROR "SANITIZE=${SANITIZE} needs gcc or clang")
     endif()
     message(STATUS "Building with -fsanitize=${SANITIZE}")
-    target_compile_options(server PRIVATE
+    # PUBLIC so the tests are sanitized too when the tree is configured this way.
+    target_compile_options(server_core PUBLIC
         -fsanitize=${SANITIZE} -fno-omit-frame-pointer -g)
-    target_link_options(server PRIVATE -fsanitize=${SANITIZE})
+    target_link_options(server_core PUBLIC -fsanitize=${SANITIZE})
+endif()
+
+# Tests are opt-out via the standard BUILD_TESTING, and skip themselves entirely
+# when Criterion is not installed, so a plain build never needs it.
+include(CTest)
+if(BUILD_TESTING)
+    add_subdirectory(test)
 endif()
 
 # The server resolves SITE_DIR ("./site") against its working directory, so it has

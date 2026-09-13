@@ -4,8 +4,9 @@ A small static HTTP/1.1 file server written in C. It listens on a TCP port, serv
 files out of `site/`, spawns one detached thread per connection, and keeps page
 bodies in an in-memory cache keyed by FNV-1a hash of the request path.
 
-It is a development server. See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) before pointing
-anything at it, and do not expose it to a network you do not control.
+It is a development server. [KNOWN_ISSUES.md](KNOWN_ISSUES.md) lists both the open
+bugs and the limits that are deliberate — do not expose it to a network you do not
+control.
 
 Everything beyond running it — sanitizer builds, editor setup, the source layout and
 the k6 load test — is in [DEVELOPMENT.md](DEVELOPMENT.md).
@@ -114,3 +115,49 @@ the socket but ignored.
 Add pages by dropping files into `site/`. They are picked up on the next request for
 that path, and the body is cached in memory from the first hit onward, so restart the
 server after editing a file you have already requested.
+
+## Run the tests
+
+The suite uses [Criterion](https://github.com/Snaipe/Criterion). It is a test-only
+dependency — it never gets linked into the server, and a tree without it builds and
+runs exactly as before, just with the tests skipped.
+
+```bash
+sudo apt-get install libcriterion-dev
+```
+
+Tests are picked up by the ordinary configure step and built alongside the server,
+then run through CTest:
+
+```bash
+cmake -S . -B build && cmake --build build
+```
+
+```bash
+ctest --test-dir build --output-on-failure
+```
+
+Each of the three suites is also a binary you can run on its own, which is the
+quicker loop while working on one of them:
+
+```bash
+./build/test/test_serve --verbose
+```
+
+Criterion takes `--list` to show the cases and `--filter` to pick them. The filter
+separates suite from test with a slash, even though the output prints them with
+`::`:
+
+```bash
+./build/test/test_serve --filter 'serve/a_query*'
+```
+
+**Four tests fail on purpose.** They pin bugs that are not fixed yet; the
+"Bugs to fix" list in [KNOWN_ISSUES.md](KNOWN_ISSUES.md) names the failing test for
+each one, so a fix is done when its test goes green. One of them crashes rather than
+failing an assertion — Criterion runs every test in its own process, so that is
+reported as a single `CRASH` and the rest of the suite still runs.
+
+Configuring with `-DSANITIZE=address` builds the tests sanitized too, which is how
+the leaks in that list show up; see [DEVELOPMENT.md](DEVELOPMENT.md). To leave the
+tests out of the build entirely, configure with `-DBUILD_TESTING=OFF`.
