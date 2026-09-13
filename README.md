@@ -258,10 +258,6 @@ development server and do not expose it.
 
 ### Ways to kill the process
 
-* A file that passes `stat` but will not open poisons the cache. `read_file()`
-  returns NULL, and `send_http_static_page_response()` neither checks it nor
-  initialises `out_len`: the first request answers 200 with a garbage length and
-  caches NULL, and the second segfaults in `strlen(NULL)`.
 * A connection that closes without sending is served from uninitialised memory.
   `read()`'s return value is unchecked and `init_request()` does not zero its
   allocation, so `sscanf` matches nothing and the server logs and routes on heap

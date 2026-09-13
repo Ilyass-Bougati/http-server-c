@@ -26,9 +26,17 @@ void send_http_static_page_response(http_request *req, http_static_page_response
 {
     char *path = res->path;
     char *content = get_cached(path);
+    bool cache_hit = (content != NULL);
     size_t out_len;
-    if (content == NULL) {
+    if (!cache_hit) {
         content = read_file(path, &out_len);
+        if (content == NULL)
+        {
+            res->path = NOT_FOUND_PATH;
+            res->status_code = 404;
+            send_http_static_page_response(req, res);
+            return;
+        }
         cache(path, content);
     } else {
         out_len = strlen(content);
@@ -49,6 +57,9 @@ void send_http_static_page_response(http_request *req, http_static_page_response
 
     free(req);
     free(res);
-    free(content);
+    if (cache_hit)
+    {
+        free(content);
+    }
     free(formatted_header);
 }
