@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(http-server-c
+project(sefaultd
     VERSION 0.1.0
     DESCRIPTION "A small static HTTP/1.1 file server"
     LANGUAGES C)
@@ -33,29 +33,29 @@ find_package(Threads REQUIRED)
 # Everything except main() lives in an object library so the test binaries can
 # link the very same objects the server does, instead of recompiling the tree
 # with their own flags. server.c stays out of it: Criterion brings its own main.
-add_library(server_core OBJECT ${APP_SOURCES})
+add_library(sefaultd_core OBJECT ${APP_SOURCES})
 
-# PUBLIC throughout, so anything linking server_core inherits the include paths,
+# PUBLIC throughout, so anything linking sefaultd_core inherits the include paths,
 # the language level and -pthread without repeating them.
-target_compile_features(server_core PUBLIC c_std_11)
+target_compile_features(sefaultd_core PUBLIC c_std_11)
 
 # include/ makes "cache.h" resolve from any source file; the project root makes
 # "vendor/fnv.h" resolve without a ../ climb out of the including file's dir.
-target_include_directories(server_core PUBLIC
+target_include_directories(sefaultd_core PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}")
 
-target_compile_options(server_core PRIVATE
+target_compile_options(sefaultd_core PRIVATE
     $<$<C_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra>)
 
-target_link_libraries(server_core PUBLIC Threads::Threads)
+target_link_libraries(sefaultd_core PUBLIC Threads::Threads)
 
-add_executable(server server.c)
+add_executable(sefaultd server.c)
 
-target_compile_options(server PRIVATE
+target_compile_options(sefaultd PRIVATE
     $<$<C_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra>)
 
-target_link_libraries(server PRIVATE server_core)
+target_link_libraries(sefaultd PRIVATE sefaultd_core)
 
 # -DSANITIZE=address|thread|undefined|none (default none). ThreadSanitizer is the
 # one that finds the unsynchronised page cache; it cannot be combined with
@@ -69,9 +69,9 @@ if(NOT SANITIZE STREQUAL "none")
     endif()
     message(STATUS "Building with -fsanitize=${SANITIZE}")
     # PUBLIC so the tests are sanitized too when the tree is configured this way.
-    target_compile_options(server_core PUBLIC
+    target_compile_options(sefaultd_core PUBLIC
         -fsanitize=${SANITIZE} -fno-omit-frame-pointer -g)
-    target_link_options(server_core PUBLIC -fsanitize=${SANITIZE})
+    target_link_options(sefaultd_core PUBLIC -fsanitize=${SANITIZE})
 endif()
 
 # Tests are opt-out via the standard BUILD_TESTING, and skip themselves entirely
@@ -85,8 +85,8 @@ endif()
 # to be started from the project root. This target does that for you:
 #     cmake --build build --target run
 add_custom_target(run
-    COMMAND "$<TARGET_FILE:server>" 8080
+    COMMAND "$<TARGET_FILE:sefaultd>" 8080
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     USES_TERMINAL
-    DEPENDS server
+    DEPENDS sefaultd
     COMMENT "Serving ${CMAKE_CURRENT_SOURCE_DIR}/site on port 8080")

@@ -13,7 +13,7 @@ RUN cmake --build build
 FROM scratch
 ENV LOG_LEVEL=INFO
 WORKDIR /
-COPY --from=build /src/build/server /usr/local/bin/server
+COPY --from=build /src/build/sefaultd /usr/local/bin/sefaultd
 COPY site /site
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/server", "-p", "8080"]
+ENTRYPOINT ["/usr/local/bin/sefaultd", "-p", "8080"]

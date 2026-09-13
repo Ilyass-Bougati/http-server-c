@@ -54,7 +54,7 @@ the sanitizer runtime reserves for its shadow memory. Disable address-space
 randomization for that one process:
 
 ```bash
-setarch -R ./build-tsan/server 8080
+setarch -R ./build-tsan/sefaultd 8080
 ```
 
 The system-wide alternative, `sudo sysctl -w vm.mmap_rnd_bits=28`, needs root and
@@ -65,7 +65,7 @@ working directory. To keep the sanitizer's report separate from the server's own
 stderr logging, send it to its own file:
 
 ```bash
-TSAN_OPTIONS="log_path=tsan" setarch -R ./build-tsan/server 8080
+TSAN_OPTIONS="log_path=tsan" setarch -R ./build-tsan/sefaultd 8080
 ```
 
 ## Layout
@@ -112,7 +112,7 @@ Install k6 first if you do not have it. On Debian or Ubuntu, follow the
 Start the server in one terminal, then run the test in another:
 
 ```bash
-./build/server 8080
+./build/sefaultd 8080
 ```
 
 ```bash

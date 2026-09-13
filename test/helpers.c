@@ -14,7 +14,7 @@
 #define INDEX_HTML "<h1>index</h1>"
 #define NOT_FOUND_HTML "<h1>not found</h1>"
 
-static char temp_dir[] = "/tmp/http-server-c-test-XXXXXX";
+static char temp_dir[] = "/tmp/sefaultd-test-XXXXXX";
 
 static int remove_entry(const char *path, const struct stat *st, int type, struct FTW *ftw)
 {

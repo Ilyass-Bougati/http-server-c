@@ -1,7 +1,7 @@
 *.o
 *.d
 *.log
-server
+sefaultd
 build*
 .cache*
 compile_commands.json

@@ -1,4 +1,4 @@
-# http-server-c
+# sefaultd
 
 A small static HTTP/1.1 file server written in C. It listens on a TCP port, serves
 files out of `site/`, spawns one detached thread per connection, and keeps page
@@ -19,20 +19,20 @@ Images are published to GitHub Container Registry from `v*` tags. `latest` track
 the newest release, and each release also gets its version as a tag (`1.0.0`).
 
 ```bash
-docker run --rm -p 8080:8080 ghcr.io/ilyass-bougati/http-server-c:latest
+docker run --rm -p 8080:8080 ghcr.io/ilyass-bougati/sefaultd:latest
 ```
 
 To serve your own pages without rebuilding, mount a directory over `/site`:
 
 ```bash
-docker run --rm -p 8080:8080 -v "$PWD/site:/site" ghcr.io/ilyass-bougati/http-server-c:latest
+docker run --rm -p 8080:8080 -v "$PWD/site:/site" ghcr.io/ilyass-bougati/sefaultd:latest
 ```
 
 ### Build the image yourself
 
 ```bash
-docker build -t http-server-c .
-docker run --rm -p 8080:8080 http-server-c
+docker build -t sefaultd .
+docker run --rm -p 8080:8080 sefaultd
 ```
 
 ## Build from source and run
@@ -49,12 +49,12 @@ cmake -S . -B build
 cmake --build build
 ```
 
-That produces `build/server`. The port is a required argument, there is no default,
+That produces `build/sefaultd`. The port is a required argument, there is no default,
 and `site/` is resolved against the working directory — so start it from the project
 root, not from inside `build/`:
 
 ```bash
-./build/server 8080
+./build/sefaultd 8080
 ```
 
 There is also a `run` target that builds first and sets the working directory for

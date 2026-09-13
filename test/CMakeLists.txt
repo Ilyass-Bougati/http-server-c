@@ -23,8 +23,8 @@ foreach(suite test_utils test_cache test_serve)
     target_compile_options(${suite} PRIVATE
         $<$<C_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra>)
 
-    # server_core carries the include paths and -pthread with it.
-    target_link_libraries(${suite} PRIVATE server_core PkgConfig::CRITERION)
+    # sefaultd_core carries the include paths and -pthread with it.
+    target_link_libraries(${suite} PRIVATE sefaultd_core PkgConfig::CRITERION)
 
     # Criterion runs each test in its own process, which is what keeps the
     # process-global page cache from leaking between cases. --verbose names each
