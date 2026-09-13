@@ -23,10 +23,14 @@ void *handle_request(void *arg)
 void parse_request(int client_fd)
 {
     char *request_string = (char *)calloc(sizeof(char), REQUEST_BUFFER_SIZE);
-    read(client_fd, request_string, REQUEST_BUFFER_SIZE);
+    if (read(client_fd, request_string, REQUEST_BUFFER_SIZE) == -1)
+    {
+        perror("Error reading HTTP request");
+        exit(1);
+    }
 
     http_request *req = init_request();
-    char *path = (char *)malloc(2048 * sizeof(char));
+    char *path = (char *)calloc(sizeof(char), 2048);
     sscanf(request_string, "%7s %2047s %7s", req->method, path, req->version);
     req->client_fd = client_fd;
     // removing any path variables

@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <arpa/inet.h>
 #include "include/http.h"
+#include "include/log.h"
 #include <string.h>
 
 int main(int argc, char *argv[])
@@ -67,8 +68,8 @@ int main(int argc, char *argv[])
         client_fd = accept(server_fd, (struct sockaddr *)&address, &addr_len);
         if (client_fd < 0)
         {
-            perror("error accepting connection");
-            return 1;
+            LOG_E("Error accepting connection");
+            continue;
         }
         int *pfd = malloc(sizeof *pfd);
         if (pfd == NULL)

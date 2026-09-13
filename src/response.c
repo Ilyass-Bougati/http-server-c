@@ -56,9 +56,15 @@ void send_http_static_page_response(http_request *req, http_static_page_response
         .status_text = ""};
 
     char *formatted_header = basic_header_to_string(headers);
-    write(req->client_fd, formatted_header, strlen(formatted_header));
+    if (write(req->client_fd, formatted_header, strlen(formatted_header)) < -1)
+    {
+        LOG_E("Error writing response header to client fd");
+    }
 
-    write(req->client_fd, content, out_len);
+    if (write(req->client_fd, content, out_len) < -1)
+    {
+        LOG_E("Error writing response content to client fd");
+    }
 
     free(req);
     free(res);
@@ -101,9 +107,15 @@ void send_http_not_found_page_response(http_request *req, http_static_page_respo
         .status_text = ""};
 
     char *formatted_header = basic_header_to_string(headers);
-    write(req->client_fd, formatted_header, strlen(formatted_header));
+    if (write(req->client_fd, formatted_header, strlen(formatted_header)) < -1)
+    {
+        LOG_E("Error writing response header to client fd");
+    }
 
-    write(req->client_fd, content, out_len);
+    if (write(req->client_fd, content, out_len) < -1)
+    {
+        LOG_E("Error writing response content to client fd");
+    }
 
     free(req);
     free(res);
