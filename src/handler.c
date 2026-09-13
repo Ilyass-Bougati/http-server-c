@@ -10,22 +10,26 @@
 #include <sys/stat.h>
 #include "log.h"
 
-void render_page(http_request *req, int status_code, char* path) {
+void render_page(http_request *req, int status_code, char *path)
+{
     http_static_page_response *res;
     res = create_response(status_code, path);
     send_http_static_page_response(req, res);
 }
 
-void global_req_handler(http_request* req)
+void global_req_handler(http_request *req)
 {
     char *path;
 
-    if (strcmp(req->path, "/") == 0) {
+    if (strcmp(req->path, "/") == 0)
+    {
         LOG_D("rendering index.html for /");
         path = SITE_DIR "/index.html";
         render_page(req, 200, path);
         return;
-    } else {
+    }
+    else
+    {
         int path_size = strlen(SITE_DIR) + strlen(req->path) + 1;
         path = calloc(sizeof(char), path_size);
         snprintf(path, path_size, "%s%s", SITE_DIR, req->path);
@@ -33,7 +37,8 @@ void global_req_handler(http_request* req)
     }
 
     struct stat st;
-    if (stat(path, &st) < 0 || !S_ISREG(st.st_mode)) {
+    if (stat(path, &st) < 0 || !S_ISREG(st.st_mode))
+    {
         // free(path);
         path = NOT_FOUND_PATH;
         LOG_D("page not found, rendering %s", path);

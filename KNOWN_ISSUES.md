@@ -12,13 +12,20 @@ Everything here was reproduced against the current code.
 ## Bugs to fix
 
 Most of these have a test in `test/` that fails today and goes green when the bug
-is fixed. Where there is no test, the reason is given.
+is fixed. Where there is no test, the reason is given — usually that the symptom is
+a leak, which has no effect on the response and only shows up when the suite is
+built with `-DSANITIZE=address`.
+
+> Fixed already: cached bodies used to be cut at the first NUL byte, because the
+> length was recovered with `strlen()` on a cache hit. The cache now carries the
+> length it was given. Guarded by `cache::keeps_the_length_it_was_given` and
+> `serve::a_cached_file_is_not_truncated_at_a_nul_byte`.
 
 ### 1. A missing `not_found.html` takes the whole process down
 
 > failing test: `serve::a_missing_not_found_page_does_not_take_the_process_down`
 
-When `read_file()` cannot load a page, [`send_http_static_page_response()`](src/response.c:37)
+When `read_file()` cannot load a page, [`send_http_static_page_response()`](src/response.c:47)
 retries itself with `NOT_FOUND_PATH`. It does that unconditionally — including
 when the file it just failed to read *was* `NOT_FOUND_PATH`. So if
 `site/not_found.html` is missing, unreadable, or deleted while the server is up,
@@ -26,34 +33,13 @@ one request for any absent page recurses until the stack runs out.
 
 It is not one bad connection: a stack overflow on a connection thread kills the
 process. Verified — the server exits with signal 11 on the first such request,
-and every open connection dies with it. This is the most serious thing here.
+and every open connection dies with it. Under `-DSANITIZE=address` the suite names
+it exactly: `stack-overflow ... in read_file`. This is the most serious thing here.
 
 The recursion needs a base case: when the path being loaded is already
 `NOT_FOUND_PATH`, send something built into the binary instead of recursing.
 
-### 2. Cached bodies are cut at the first NUL byte
-
-> failing test: `serve::a_cached_file_is_not_truncated_at_a_nul_byte`
-
-On a cache miss the body length is the one `read_file()` measured. On a hit,
-[`response.c:42`](src/response.c:42) recomputes it as `strlen(content)`, and
-`get_cached()` hands back a `strdup`. Both stop at the first NUL, so a file
-holding one is served whole to the first visitor and truncated to everyone after:
-
-```
-bin.html on disk: 29 bytes, NUL at offset 13
-request 1 (miss)  Content-Length: 29, 29 bytes sent
-request 2 (hit)   Content-Length: 13, 13 bytes sent
-```
-
-Note the response stays self-consistent — the declared length matches what is
-sent — so the k6 `length matches body` check passes while the body is wrong. Only
-a test that compares against the file on disk catches it.
-
-The cache has to keep the length alongside the body instead of recovering it
-from the bytes.
-
-### 3. Query strings are not stripped from the path
+### 2. Query strings are not stripped from the path
 
 > failing test: `serve::a_query_string_is_ignored_when_resolving_the_path`
 
@@ -62,10 +48,10 @@ string becomes part of it: `stat("./site/index.html?v=1")` fails and a page that
 works without a query string 404s with one. Browsers append these constantly for
 cache busting, so this is reachable by accident rather than on purpose.
 
-Truncate the path at the first `?` in [`global_req_handler()`](src/handler.c:29)
+Truncate the path at the first `?` in [`global_req_handler()`](src/handler.c:33)
 before joining it to `SITE_DIR`.
 
-### 4. Percent-escapes are never decoded
+### 3. Percent-escapes are never decoded
 
 > failing test: `serve::a_percent_encoded_path_resolves_to_the_real_file`
 
@@ -74,55 +60,43 @@ contains a space can sit in `site/` and be unreachable: the browser sends
 `/my%20page.html`, and the server looks for a file actually named `my%20page.html`.
 
 Percent-decode the path before joining it to `SITE_DIR`. Worth doing together
-with #3, in the same place.
+with #2, in the same place.
 
-### 5. Every 404 leaks its path buffer
+### 4. Every 404 leaks its path buffer
 
-> no test — a leak has no observable effect on the response, so catching it means
-> running the suite under `-DSANITIZE=address`, which reports it as a leak
+> no test — a leak has no effect on the response, so it takes `-DSANITIZE=address`
+> to see. It is already reproduced there: the 404 cases in `test_serve` report
+> around 8 KB leaked across two allocations.
 
-[`global_req_handler()`](src/handler.c:37) overwrites the `calloc`ed `path` with
+[`global_req_handler()`](src/handler.c:41) overwrites the `calloc`ed `path` with
 `NOT_FOUND_PATH` and never frees it — the `free(path)` on the line above is
 commented out. Every 404 leaks the buffer, which on a server with no cache
 eviction means it grows for as long as the process lives.
 
-### 6. Caching a path twice leaks the body that loses
+### 5. Caching a path twice leaks the body that loses
 
-> no test — same reason as #5
+> no test — same reason as #4. Reproduced by
+> `cache::storing_a_path_twice_keeps_the_first_body` under ASan, which reports the
+> 7 bytes the second `cache()` call was handed and never freed.
 
 `cache.h` says the cache takes ownership of `content` and the caller must not
 free it. When the path is already cached, [`cache()`](src/cache.c:41) returns
 early and drops the pointer without freeing it, so nobody frees it.
 
-Single-threaded this never fires, because a hit is served from the cache. It
-fires under concurrency: two connections that both miss the same path both read
-the file and both call `cache()`, and the loser's buffer leaks. Confirmed with
-LeakSanitizer on a two-call repro.
+Single-threaded this only fires if something stores the same path twice, because a
+hit is served from the cache. It fires on its own under concurrency: two
+connections that both miss the same path both read the file and both call
+`cache()`, and the loser's buffer leaks.
 
 Either free the content on the early return, or document that the caller keeps
 ownership when the path was already present.
 
-### 7. The logger is not format-checked, and one call is already wrong
-
-> no test — asserting on log text would be brittle, and the compiler can do this
-
-[`cache.c:58`](src/cache.c:58) reads `LOG_D("cached %s (hash %ul)", path, (unsigned long) page->hash)`.
-`%ul` is `%u` followed by a literal `l`, and `%u` is then handed an `unsigned
-long`. It prints a stray `l` after the number — visible in any DEBUG run as
-`(hash 661261229l)` — and passing the wrong type is undefined behaviour that
-happens to work on 64-bit little-endian.
-
-The reason `-Wall -Wextra` stays quiet is that [`log_write()`](include/log.h:28)
-is a plain variadic function. Giving it `__attribute__((format(printf, 4, 5)))`
-makes the compiler check every `LOG_*` call site; confirmed that gcc then flags
-this exact line. That is the real fix — it catches the next one too.
-
-### 8. `read()` and `write()` return values are ignored
+### 6. `read()` and `write()` return values are ignored
 
 > no test — needs a client that stops reading mid-response, which is fiddly to
 > make deterministic
 
-Neither `write()` in [`response.c:54`](src/response.c:54) is checked, so a short
+Neither `write()` in [`response.c:62`](src/response.c:62) is checked, so a short
 write silently truncates the body and a failed write is indistinguishable from a
 successful one. Same for the `read()` in [`http.c:25`](src/http.c:25), where a
 `-1` is treated as an empty request. Blocking sockets make short writes rare

@@ -8,6 +8,19 @@
 #include <string.h>
 #include "cache.h"
 
+/* 29 bytes with a NUL at offset 13, for the cases where the stored length has
+ * to be the one that was handed in rather than one recovered from the bytes. */
+static const char NUL_BODY[] = "<h1>AAAA</h1>\0<h1>BBBB</h1>xx";
+#define NUL_BODY_LEN (sizeof(NUL_BODY) - 1)
+
+static char *heap_copy(const void *data, size_t len)
+{
+    char *buf = malloc(len + 1);
+    memcpy(buf, data, len);
+    buf[len] = '\0';
+    return buf;
+}
+
 Test(cache, a_path_that_was_never_stored_is_a_miss)
 {
     cr_assert_null(get_cached("./site/index.html"));
@@ -17,50 +30,82 @@ Test(cache, a_path_that_was_never_stored_is_a_miss)
 Test(cache, stores_and_returns_content)
 {
     char *path = "./site/index.html";
-    cache(path, strdup("<h1>index</h1>"));
+    const char *body = "<h1>index</h1>";
+    cache(path, heap_copy(body, strlen(body)), (long)strlen(body));
 
     cr_assert(is_cached(path));
 
-    char *got = get_cached(path);
+    site_page *got = get_cached(path);
     cr_assert_not_null(got);
-    cr_assert_str_eq(got, "<h1>index</h1>");
+    cr_assert_str_eq(got->site_content, body);
+    cr_assert_eq(got->len, (long)strlen(body));
+    free(got);
+}
+
+/*
+ * The length is whatever the caller measured, not something recovered from the
+ * bytes afterwards. This is what keeps a body holding a NUL intact across a
+ * cache hit.
+ */
+Test(cache, keeps_the_length_it_was_given)
+{
+    char *path = "./site/nul.html";
+    cache(path, heap_copy(NUL_BODY, NUL_BODY_LEN), (long)NUL_BODY_LEN);
+
+    site_page *got = get_cached(path);
+    cr_assert_not_null(got);
+    cr_assert_eq(got->len, (long)NUL_BODY_LEN,
+        "stored %ld bytes, expected %zu -- the length must not come from strlen",
+        got->len, NUL_BODY_LEN);
+    cr_assert_arr_eq(got->site_content, NUL_BODY, NUL_BODY_LEN);
     free(got);
 }
 
 Test(cache, entries_are_independent)
 {
-    cache("./site/a.html", strdup("aaa"));
-    cache("./site/b.html", strdup("bbb"));
+    cache("./site/a.html", heap_copy("aaa", 3), 3);
+    cache("./site/b.html", heap_copy("bbbb", 4), 4);
 
-    char *a = get_cached("./site/a.html");
-    char *b = get_cached("./site/b.html");
+    site_page *a = get_cached("./site/a.html");
+    site_page *b = get_cached("./site/b.html");
 
-    cr_assert_str_eq(a, "aaa");
-    cr_assert_str_eq(b, "bbb");
+    cr_assert_str_eq(a->site_content, "aaa");
+    cr_assert_eq(a->len, 3);
+    cr_assert_str_eq(b->site_content, "bbbb");
+    cr_assert_eq(b->len, 4);
+
     free(a);
     free(b);
 }
 
 /*
- * get_cached() hands back a fresh copy the caller has to free, not the stored
- * pointer. The comment on the prototype in cache.h says the opposite ("owned
- * by the cache: read it, do not free"); the implementation strdup's. This test
- * pins the behaviour the calling code in response.c actually relies on, since
- * that frees what it gets back on a cache hit.
+ * get_cached() hands back a fresh site_page the caller owns and has to free,
+ * but the body it points at stays owned by the cache and must not be freed.
+ * That split is what send_http_static_page_response() relies on when it calls
+ * free(page) and leaves the content alone, so it is worth pinning.
+ *
+ * The prototype comment in cache.h still describes the old contract ("Returns
+ * the cached buffer ... do not free"); it is the struct, not the buffer, that
+ * the caller now frees.
  */
-Test(cache, get_cached_returns_a_fresh_copy_each_time)
+Test(cache, returns_a_fresh_handle_onto_a_shared_body)
 {
     char *path = "./site/index.html";
-    cache(path, strdup("<h1>index</h1>"));
+    const char *body = "<h1>index</h1>";
+    cache(path, heap_copy(body, strlen(body)), (long)strlen(body));
 
-    char *first = get_cached(path);
-    char *second = get_cached(path);
+    site_page *first = get_cached(path);
+    site_page *second = get_cached(path);
 
     cr_assert_not_null(first);
     cr_assert_not_null(second);
-    cr_assert_neq(first, second, "each call must return a separate buffer the caller owns");
-    cr_assert_str_eq(first, second);
+    cr_assert_neq(first, second, "each call must return a separate handle the caller owns");
+    cr_assert_eq(first->site_content, second->site_content,
+        "the body itself is shared, so freeing it would corrupt the cache");
+    cr_assert_eq(first->len, second->len);
 
+    /* Only the handles. Freeing site_content here would be a use-after-free on
+     * the next request for this path. */
     free(first);
     free(second);
 }
@@ -68,14 +113,19 @@ Test(cache, get_cached_returns_a_fresh_copy_each_time)
 /*
  * Caching the same path twice keeps the first body. That is what makes an
  * edited file need a restart, and it is deliberate.
+ *
+ * Built with -DSANITIZE=address this test also reports a leak: cache() drops the
+ * second body without freeing it, even though cache.h says it takes ownership.
+ * See "Caching a path twice leaks the body that loses" in KNOWN_ISSUES.md.
  */
 Test(cache, storing_a_path_twice_keeps_the_first_body)
 {
     char *path = "./site/index.html";
-    cache(path, strdup("first"));
-    cache(path, strdup("second"));
+    cache(path, heap_copy("first", 5), 5);
+    cache(path, heap_copy("second", 6), 6);
 
-    char *got = get_cached(path);
-    cr_assert_str_eq(got, "first");
+    site_page *got = get_cached(path);
+    cr_assert_str_eq(got->site_content, "first");
+    cr_assert_eq(got->len, 5);
     free(got);
 }

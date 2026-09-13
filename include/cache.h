@@ -7,11 +7,12 @@
  * maps to. The path itself is not kept, only its hash, so lookups compare
  * hashes rather than strings.
  */
-typedef struct site_page {
+typedef struct site_page
+{
     Fnv32_t hash;
-    char* site_content;
+    char *site_content;
+    long len;
 } site_page;
-
 
 /*
  * Stores `content` in the cache under the hash of `path`.
@@ -21,7 +22,7 @@ typedef struct site_page {
  * Returns nothing. Does nothing if `path` is already cached. Aborts the
  * process if the cache cannot grow.
  */
-void cache(char *path, char *content);
+void cache(char *path, char *content, long len);
 
 /*
  * Looks up the body previously stored for `path`.
@@ -29,8 +30,7 @@ void cache(char *path, char *content);
  * Returns the cached buffer, or NULL if the path was never cached. The buffer
  * is owned by the cache: read it, do not free or modify it.
  */
-char *get_cached(char* path);
-
+site_page *get_cached(char *path);
 
 /*
  * Reports whether `path` currently has an entry in the cache.

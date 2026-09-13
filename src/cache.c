@@ -31,21 +31,23 @@ static bool is_cached_hash(Fnv32_t hash)
     return false;
 }
 
-void cache(char *path, char *content)
+void cache(char *path, char *content, long len)
 {
     Fnv32_t hash = hash_str(path);
 
     pthread_mutex_lock(&m);
-    if (is_cached_hash(hash)) {
+    if (is_cached_hash(hash))
+    {
         pthread_mutex_unlock(&m);
         return;
     }
 
-    site_page *page = (site_page*) malloc(sizeof(site_page));
+    site_page *page = (site_page *)malloc(sizeof(site_page));
     page->hash = hash;
     page->site_content = content;
+    page->len = len;
 
-    site_cache = (site_page**) realloc(site_cache, (cache_size + 1) * sizeof(site_page *));
+    site_cache = (site_page **)realloc(site_cache, (cache_size + 1) * sizeof(site_page *));
     if (site_cache == NULL)
     {
         LOG_E("error caching page");
@@ -55,7 +57,7 @@ void cache(char *path, char *content)
     site_cache[cache_size++] = page;
     pthread_mutex_unlock(&m);
 
-    LOG_D("cached %s (hash %ul)", path, (unsigned long) page->hash);
+    LOG_D("cached %s (hash %lu)", path, (unsigned long)page->hash);
 }
 
 bool is_cached(char *path)
@@ -75,7 +77,7 @@ bool is_cached(char *path)
     return false;
 }
 
-char *get_cached(char* path)
+site_page *get_cached(char *path)
 {
     Fnv32_t hash = hash_str(path);
     pthread_mutex_lock(&m);
@@ -83,9 +85,10 @@ char *get_cached(char* path)
     {
         if (hash == site_cache[i]->hash)
         {
-            char *content = strdup(site_cache[i]->site_content);
+            site_page *site = calloc(sizeof(site_page), 1);
+            memcpy(site, site_cache[i], sizeof(site_page));
             pthread_mutex_unlock(&m);
-            return content;
+            return site;
         }
     }
 

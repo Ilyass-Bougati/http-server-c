@@ -46,16 +46,14 @@ target_include_directories(server_core PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}")
 
 target_compile_options(server_core PRIVATE
-    $<$<C_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra>
-    $<$<C_COMPILER_ID:MSVC>:/W4>)
+    $<$<C_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra>)
 
 target_link_libraries(server_core PUBLIC Threads::Threads)
 
 add_executable(server server.c)
 
 target_compile_options(server PRIVATE
-    $<$<C_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra>
-    $<$<C_COMPILER_ID:MSVC>:/W4>)
+    $<$<C_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra>)
 
 target_link_libraries(server PRIVATE server_core)
 

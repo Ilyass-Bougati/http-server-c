@@ -41,8 +41,8 @@ docker run --rm -p 8080:8080 http-server-c
 ## Build from source and run
 
 Needs a C compiler (`gcc` or `clang`), [CMake](https://cmake.org/) 3.16 or newer, a
-build tool for it (`make` or `ninja`), and a POSIX system with pthreads. No external
-libraries; the only vendored code is the FNV hash in `vendor/`.
+build tool for it (`make` or `ninja`), and Linux. No external libraries; the only
+vendored code is the FNV hash in `vendor/`.
 
 Configure once, then build. Everything generated lands in `build/`, which is ignored
 by git; deleting that directory is the full clean.
@@ -152,7 +152,7 @@ separates suite from test with a slash, even though the output prints them with
 ./build/test/test_serve --filter 'serve/a_query*'
 ```
 
-**Four tests fail on purpose.** They pin bugs that are not fixed yet; the
+**Three tests fail on purpose.** They pin bugs that are not fixed yet; the
 "Bugs to fix" list in [KNOWN_ISSUES.md](KNOWN_ISSUES.md) names the failing test for
 each one, so a fix is done when its test goes green. One of them crashes rather than
 failing an assertion — Criterion runs every test in its own process, so that is
