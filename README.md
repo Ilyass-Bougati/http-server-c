@@ -32,9 +32,6 @@ docker run --rm -p 8080:8080 -v "$PWD/site:/site" ghcr.io/ilyass-bougati/http-se
 
 ```bash
 docker build -t http-server-c .
-```
-
-```bash
 docker run --rm -p 8080:8080 http-server-c
 ```
 
@@ -49,9 +46,6 @@ by git; deleting that directory is the full clean.
 
 ```bash
 cmake -S . -B build
-```
-
-```bash
 cmake --build build
 ```
 
@@ -131,9 +125,6 @@ then run through CTest:
 
 ```bash
 cmake -S . -B build && cmake --build build
-```
-
-```bash
 ctest --test-dir build --output-on-failure
 ```
 
