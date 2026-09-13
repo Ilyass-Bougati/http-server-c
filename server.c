@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include "include/http.h"
 #include "include/log.h"
+#include <string.h>
 
 int main(int argc, char *argv[])
 {
