@@ -8,19 +8,41 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <ftw.h>
 #include "http.h"
 
 #define INDEX_HTML "<h1>index</h1>"
 #define NOT_FOUND_HTML "<h1>not found</h1>"
 
+static char temp_dir[] = "/tmp/http-server-c-test-XXXXXX";
+
+static int remove_entry(const char *path, const struct stat *st, int type, struct FTW *ftw)
+{
+    (void)st;
+    (void)type;
+    (void)ftw;
+    remove(path);
+    return 0;
+}
+
+/* Registered with atexit, so the directory goes away however the test ends --
+ * passing, or failing an assertion. A test that dies on a signal skips this and
+ * leaves its directory behind, which is a fair trade for not having to unwind
+ * cleanup from a crash handler. */
+static void cleanup_temp_site(void)
+{
+    if (chdir("/") != 0) return;
+    nftw(temp_dir, remove_entry, 8, FTW_DEPTH | FTW_PHYS);
+}
+
 void enter_temp_site(void)
 {
-    static char dir[] = "/tmp/http-server-c-test-XXXXXX";
-    if (mkdtemp(dir) == NULL) {
+    if (mkdtemp(temp_dir) == NULL) {
         perror("mkdtemp");
         exit(1);
     }
-    if (chdir(dir) != 0) {
+    atexit(cleanup_temp_site);
+    if (chdir(temp_dir) != 0) {
         perror("chdir");
         exit(1);
     }

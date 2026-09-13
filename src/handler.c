@@ -17,6 +17,13 @@ void render_page(http_request *req, int status_code, char *path)
     send_http_static_page_response(req, res);
 }
 
+void render_not_found_page(http_request *req)
+{
+    http_static_page_response *res;
+    res = create_response(404, NOT_FOUND_PATH);
+    send_http_not_found_page_response(req, res);
+}
+
 void global_req_handler(http_request *req)
 {
     char *path;
@@ -39,10 +46,9 @@ void global_req_handler(http_request *req)
     struct stat st;
     if (stat(path, &st) < 0 || !S_ISREG(st.st_mode))
     {
-        // free(path);
-        path = NOT_FOUND_PATH;
         LOG_D("page not found, rendering %s", path);
-        render_page(req, 404, path);
+        free(path);
+        render_not_found_page(req);
         return;
     }
 

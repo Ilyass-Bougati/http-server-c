@@ -7,6 +7,7 @@
 #include "log.h"
 #include <pthread.h>
 #include <syscall.h>
+#include <string.h>
 
 void *handle_request(void *arg)
 {
@@ -21,12 +22,25 @@ void *handle_request(void *arg)
 
 void parse_request(int client_fd)
 {
-    char* request_string = (char *) calloc(sizeof(char), REQUEST_BUFFER_SIZE);
+    char *request_string = (char *)calloc(sizeof(char), REQUEST_BUFFER_SIZE);
     read(client_fd, request_string, REQUEST_BUFFER_SIZE);
 
-    http_request* req = init_request();
-    sscanf(request_string, "%7s %2047s %7s", req->method, req->path, req->version);
+    http_request *req = init_request();
+    char *path = (char *)malloc(2048 * sizeof(char));
+    sscanf(request_string, "%7s %2047s %7s", req->method, path, req->version);
     req->client_fd = client_fd;
+    // removing any path variables
+    for (size_t i = 0; i < strlen(path); i++)
+    {
+        if (path[i] == '\0' || path[i] == '?')
+        {
+            req->path[i] = '\0';
+            break;
+        }
+        req->path[i] = path[i];
+    }
+
+    free(path);
     log_http_req(req);
     global_req_handler(req);
     free(request_string);

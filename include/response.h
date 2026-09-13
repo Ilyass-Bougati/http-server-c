@@ -5,14 +5,16 @@
 #define BUFFER_SIZE 1024
 #define SITE_DIR "./site"
 #define NOT_FOUND_PATH SITE_DIR "/not_found.html"
+#define NOT_FOUND_HTML "<h1>This page wasn't found</h1><a href=\"/\">go back to home</a>"
 
 /*
  * A response that serves one static file: the status code to report and the
  * path of the file whose contents form the body.
  */
-typedef struct http_static_page_response {
+typedef struct http_static_page_response
+{
     int status_code;
-    char* path;
+    char *path;
 } http_static_page_response;
 
 /*
@@ -52,3 +54,5 @@ void free_response(http_static_page_response *res);
  * to close.
  */
 void send_http_static_page_response(http_request *req, http_static_page_response *res);
+
+void send_http_not_found_page_response(http_request *req, http_static_page_response *res);

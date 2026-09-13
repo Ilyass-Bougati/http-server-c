@@ -14,8 +14,22 @@ jobs:
       - run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
       - run: cmake --build build
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Criterion is only needed here; without it the tests are skipped and the
+      # rest of the build is unaffected.
+      - name: Install Criterion
+        run: sudo apt-get update && sudo apt-get install -y libcriterion-dev
+      # Debug, so the tests run with the assertions and the -Wall -Wextra build
+      # the developer sees rather than the optimised one that gets shipped.
+      - run: cmake -B build -S .
+      - run: cmake --build build
+      - run: ctest --test-dir build --output-on-failure
+
   publish:
-    needs: build
+    needs: [build, test]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:

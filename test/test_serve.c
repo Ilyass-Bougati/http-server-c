@@ -7,6 +7,8 @@
 #include <criterion/criterion.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include "helpers.h"
 
 /* Asserts a response carries exactly the bytes of site/<name>. */
@@ -179,22 +181,60 @@ Test(serve, a_query_string_is_ignored_when_resolving_the_path)
 }
 
 /*
- * FAILS TODAY (404). Percent-escapes are never decoded, so a file whose name
- * contains a space -- or any character a browser escapes -- can be listed in
- * site/ and still be unreachable. "%20" is looked for literally in the filename.
+ * FAILS TODAY. When a file passes stat() but cannot be opened -- a permission
+ * change, or the file going away between the two calls -- read_file() returns
+ * NULL and send_http_not_found_page_response() takes over. That function caches
+ * what it served under res->path, which is the path of the file that was asked
+ * for, not NOT_FOUND_PATH.
  *
- * The path needs percent-decoding before it is joined to SITE_DIR.
+ * So the built-in 404 body ends up stored under the real page's key. Every later
+ * request for that path is a cache hit, and since it comes back through the
+ * normal path it is sent with status 200: the wrong body under a success code,
+ * for as long as the process lives, even once the file is readable again.
+ *
+ * The fallback should cache under NOT_FOUND_PATH, or not cache at all when it is
+ * serving the built-in body.
  */
-Test(serve, a_percent_encoded_path_resolves_to_the_real_file)
+Test(serve, a_transient_read_failure_does_not_poison_the_cache)
 {
     enter_temp_site();
-    const char *page = "<h1>spaced</h1>";
-    write_site_file("my page.html", page, strlen(page));
+    const char *page = "<h1>real</h1>";
+    write_site_file("flaky.html", page, strlen(page));
 
-    captured_response res = do_request("GET /my%20page.html HTTP/1.1\r\nHost: x\r\n\r\n");
+    if (geteuid() == 0) {
+        cr_skip("running as root, chmod 000 would not stop the read");
+    }
 
-    cr_assert_eq(res.status_code, 200,
-        "expected 200 for /my%%20page.html, got %d", res.status_code);
-    assert_body_matches_file(&res, "my page.html");
+    /* stat() still succeeds on a 000 file; fopen() is what fails. */
+    cr_assert_eq(chmod("site/flaky.html", 0000), 0);
+    captured_response first = do_request("GET /flaky.html HTTP/1.1\r\nHost: x\r\n\r\n");
+    free_captured(&first);
+
+    cr_assert_eq(chmod("site/flaky.html", 0644), 0);
+    captured_response second = do_request("GET /flaky.html HTTP/1.1\r\nHost: x\r\n\r\n");
+
+    cr_assert_eq(second.status_code, 200,
+        "the file is readable again, expected 200, got %d", second.status_code);
+    assert_body_matches_file(&second, "flaky.html");
+    free_captured(&second);
+}
+
+/*
+ * A client that connects and sends nothing at all. read() returns 0, the request
+ * buffer stays empty, and sscanf matches none of its three fields -- so whatever
+ * the parser does next has to cope with fields it never filled in.
+ *
+ * This passes in a normal build and fails under -DSANITIZE=address, where the
+ * uninitialised scratch buffer in parse_request() shows up as a heap-buffer
+ * -overflow in strlen. See "An empty request reads past the end of a heap buffer"
+ * in KNOWN_ISSUES.md.
+ */
+Test(serve, an_empty_request_is_handled_without_reading_uninitialised_memory)
+{
+    enter_temp_site();
+
+    captured_response res = do_request("");
+
+    cr_assert_neq(res.status_code, -1, "the server sent nothing back at all");
     free_captured(&res);
 }

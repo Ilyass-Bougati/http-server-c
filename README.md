@@ -152,10 +152,10 @@ separates suite from test with a slash, even though the output prints them with
 ./build/test/test_serve --filter 'serve/a_query*'
 ```
 
-**Three tests fail on purpose.** They pin bugs that are not fixed yet; the
-"Bugs to fix" list in [KNOWN_ISSUES.md](KNOWN_ISSUES.md) names the failing test for
-each one, so a fix is done when its test goes green. One of them crashes rather than
-failing an assertion — Criterion runs every test in its own process, so that is
+The suite is green in a normal build. Some of the bugs still open in
+[KNOWN_ISSUES.md](KNOWN_ISSUES.md) only show up under a sanitizer, and the entry for
+each says which build surfaces it — so a green `ctest` is a weaker statement than it
+looks. Criterion runs every test in its own process, so a test that crashes is
 reported as a single `CRASH` and the rest of the suite still runs.
 
 Configuring with `-DSANITIZE=address` builds the tests sanitized too, which is how

@@ -11,97 +11,55 @@ Everything here was reproduced against the current code.
 
 ## Bugs to fix
 
-Most of these have a test in `test/` that fails today and goes green when the bug
-is fixed. Where there is no test, the reason is given — usually that the symptom is
-a leak, which has no effect on the response and only shows up when the suite is
-built with `-DSANITIZE=address`.
+Each one is reproducible. Where a test exists it fails today and goes green when
+the bug is fixed; where there is none, the reason is given — usually that the
+symptom is a leak, which shows up only under `-DSANITIZE=address`.
 
-> Fixed already: cached bodies used to be cut at the first NUL byte, because the
-> length was recovered with `strlen()` on a cache hit. The cache now carries the
-> length it was given. Guarded by `cache::keeps_the_length_it_was_given` and
-> `serve::a_cached_file_is_not_truncated_at_a_nul_byte`.
+### 1. An empty request reads past the end of a heap buffer
 
-### 1. A missing `not_found.html` takes the whole process down
+> test: `serve::an_empty_request_is_handled_without_reading_uninitialised_memory`
+> — passes in a normal build and fails under `-DSANITIZE=address`. The read is
+> undefined rather than reliably fatal: `strlen` usually finds a stray zero byte
+> and returns something plausible, which is exactly what makes it worth a
+> sanitizer rather than a naked eye
 
-> failing test: `serve::a_missing_not_found_page_does_not_take_the_process_down`
+[`parse_request()`](src/http.c:29) allocates its scratch path with `malloc` and
+then trusts `sscanf` to have filled it in. On a request that parses no fields —
+a client that connects and sends nothing, which port scanners, health checks and
+browser preconnects all do — the buffer is never written, and `strlen(path)` on
+the next line walks off the end of it looking for a NUL:
 
-When `read_file()` cannot load a page, [`send_http_static_page_response()`](src/response.c:47)
-retries itself with `NOT_FOUND_PATH`. It does that unconditionally — including
-when the file it just failed to read *was* `NOT_FOUND_PATH`. So if
-`site/not_found.html` is missing, unreadable, or deleted while the server is up,
-one request for any absent page recurses until the stack runs out.
+```
+ERROR: AddressSanitizer: heap-buffer-overflow in __interceptor_strlen
+    #1 parse_request src/http.c:33
+```
 
-It is not one bad connection: a stack overflow on a connection thread kills the
-process. Verified — the server exits with signal 11 on the first such request,
-and every open connection dies with it. Under `-DSANITIZE=address` the suite names
-it exactly: `stack-overflow ... in read_file`. This is the most serious thing here.
+Use `calloc`, or check what `sscanf` returned before touching the buffer.
 
-The recursion needs a base case: when the path being loaded is already
-`NOT_FOUND_PATH`, send something built into the binary instead of recursing.
+### 2. Caching a path twice leaks the body that loses
 
-### 2. Query strings are not stripped from the path
+> no test — a leak does not change the response, so it takes
+> `-DSANITIZE=address` to see. Reproduced by
+> `cache::storing_a_path_twice_keeps_the_first_body` under ASan
 
-> failing test: `serve::a_query_string_is_ignored_when_resolving_the_path`
+`cache.h` says the cache takes ownership of `content`. When the path is already
+present, [`cache()`](src/cache.c:41) returns early and drops the pointer without
+freeing it, so nobody does.
 
-The request path is turned into a filename exactly as it arrived, so the query
-string becomes part of it: `stat("./site/index.html?v=1")` fails and a page that
-works without a query string 404s with one. Browsers append these constantly for
-cache busting, so this is reachable by accident rather than on purpose.
+Single-threaded this only fires if something stores the same path twice. Under
+concurrency it fires on its own: two connections that both miss the same path both
+read the file and both call `cache()`, and the loser's buffer leaks.
 
-Truncate the path at the first `?` in [`global_req_handler()`](src/handler.c:33)
-before joining it to `SITE_DIR`.
-
-### 3. Percent-escapes are never decoded
-
-> failing test: `serve::a_percent_encoded_path_resolves_to_the_real_file`
-
-`%20` and friends are looked for literally in the filename, so a file whose name
-contains a space can sit in `site/` and be unreachable: the browser sends
-`/my%20page.html`, and the server looks for a file actually named `my%20page.html`.
-
-Percent-decode the path before joining it to `SITE_DIR`. Worth doing together
-with #2, in the same place.
-
-### 4. Every 404 leaks its path buffer
-
-> no test — a leak has no effect on the response, so it takes `-DSANITIZE=address`
-> to see. It is already reproduced there: the 404 cases in `test_serve` report
-> around 8 KB leaked across two allocations.
-
-[`global_req_handler()`](src/handler.c:41) overwrites the `calloc`ed `path` with
-`NOT_FOUND_PATH` and never frees it — the `free(path)` on the line above is
-commented out. Every 404 leaks the buffer, which on a server with no cache
-eviction means it grows for as long as the process lives.
-
-### 5. Caching a path twice leaks the body that loses
-
-> no test — same reason as #4. Reproduced by
-> `cache::storing_a_path_twice_keeps_the_first_body` under ASan, which reports the
-> 7 bytes the second `cache()` call was handed and never freed.
-
-`cache.h` says the cache takes ownership of `content` and the caller must not
-free it. When the path is already cached, [`cache()`](src/cache.c:41) returns
-early and drops the pointer without freeing it, so nobody frees it.
-
-Single-threaded this only fires if something stores the same path twice, because a
-hit is served from the cache. It fires on its own under concurrency: two
-connections that both miss the same path both read the file and both call
-`cache()`, and the loser's buffer leaks.
-
-Either free the content on the early return, or document that the caller keeps
-ownership when the path was already present.
-
-### 6. `read()` and `write()` return values are ignored
+### 3. `read()` and `write()` return values are ignored
 
 > no test — needs a client that stops reading mid-response, which is fiddly to
 > make deterministic
 
-Neither `write()` in [`response.c:62`](src/response.c:62) is checked, so a short
-write silently truncates the body and a failed write is indistinguishable from a
-successful one. Same for the `read()` in [`http.c:25`](src/http.c:25), where a
-`-1` is treated as an empty request. Blocking sockets make short writes rare
-rather than impossible, which is what makes this the kind of bug that shows up
-once under load and never reproduces.
+Neither `write()` in [`response.c`](src/response.c:62) is checked, so a short write
+silently truncates the body and a failed write looks like a successful one. Same
+for the `read()` in [`http.c:25`](src/http.c:25), where `-1` is treated as an empty
+request. Blocking sockets make short writes rare rather than impossible — the kind
+of bug that shows up once under load and never reproduces.
 
 ---
 
@@ -142,3 +100,6 @@ nginx, and none of the below is worth the code it would cost.
   collisions would mean a bucket list per entry, which is not worth it here.
 * Cache entries are never invalidated or freed, which is why editing an
   already-requested file needs a restart.
+* Request paths are used exactly as they arrive, with no percent-decoding, so a
+  file whose name needs escaping is unreachable. Decoding is what would turn
+  `%2e%2e%2f` into `../`, which is why it is left alone deliberately.

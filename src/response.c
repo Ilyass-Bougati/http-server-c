@@ -42,9 +42,7 @@ void send_http_static_page_response(http_request *req, http_static_page_response
         content = read_file(path, &out_len);
         if (content == NULL)
         {
-            res->path = NOT_FOUND_PATH;
-            res->status_code = 404;
-            send_http_static_page_response(req, res);
+            send_http_not_found_page_response(req, res);
             return;
         }
         cache(path, content, out_len);
@@ -55,6 +53,51 @@ void send_http_static_page_response(http_request *req, http_static_page_response
         .content_length = out_len,
         .content_type = "text/html",
         .status_code = res->status_code,
+        .status_text = ""};
+
+    char *formatted_header = basic_header_to_string(headers);
+    write(req->client_fd, formatted_header, strlen(formatted_header));
+
+    write(req->client_fd, content, out_len);
+
+    free(req);
+    free(res);
+    if (cache_hit)
+    {
+        free(page);
+    }
+    free(formatted_header);
+}
+
+void send_http_not_found_page_response(http_request *req, http_static_page_response *res)
+{
+    char *content;
+    size_t out_len;
+    char *path = NOT_FOUND_PATH;
+    site_page *page = get_cached(path);
+    bool cache_hit = (page != NULL);
+
+    if (cache_hit)
+    {
+        content = page->site_content;
+        out_len = page->len;
+        LOG_D("Cache hit (len: %lu)", out_len);
+    }
+    else
+    {
+        content = read_file(path, &out_len);
+        if (content == NULL)
+        {
+            content = NOT_FOUND_HTML;
+            out_len = strlen(content);
+        }
+        cache(path, content, out_len);
+    }
+
+    basic_headers headers = {
+        .content_length = out_len,
+        .content_type = "text/html",
+        .status_code = 404,
         .status_text = ""};
 
     char *formatted_header = basic_header_to_string(headers);
