@@ -4,7 +4,7 @@
 
 http_request* init_request()
 {
-    http_request* request = (http_request*) malloc(sizeof(http_request));
+    http_request* request = (http_request*) calloc(sizeof(http_request), 1);
     return request;
 }
 

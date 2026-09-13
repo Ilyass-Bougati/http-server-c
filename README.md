@@ -256,13 +256,6 @@ The server is deliberately small, and the list below is what breaks when you
 lean on it. All of it was reproduced against the current code. Treat it as a
 development server and do not expose it.
 
-### Ways to kill the process
-
-* A connection that closes without sending is served from uninitialised memory.
-  `read()`'s return value is unchecked and `init_request()` does not zero its
-  allocation, so `sscanf` matches nothing and the server logs and routes on heap
-  garbage.
-
 ### Security
 
 * Nothing keeps the served path inside `site/`. `global_req_handler()`
