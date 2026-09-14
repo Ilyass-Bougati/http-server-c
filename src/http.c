@@ -40,7 +40,7 @@ void parse_request(int client_fd)
     if (buff == NULL)
     {
         free(path);
-        LOG_E("Couldn't allocate buffer");
+        LOG_E("Error allocating buffer");
         return;
     }
     buff[0] = '\0';
@@ -56,7 +56,7 @@ void parse_request(int client_fd)
             {
                 free(buff);
                 free(path);
-                LOG_E("Couldn't reallocating buffer");
+                LOG_E("Error reallocating buffer");
                 return;
             }
             buff = tmp;
