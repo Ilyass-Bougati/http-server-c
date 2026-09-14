@@ -9,28 +9,6 @@ Everything here was reproduced against the current code.
 
 ---
 
-## Bugs to fix
-
-Each one is reproducible. Where a test exists it fails today and goes green when
-the bug is fixed; where there is none, the reason is given — usually that the
-symptom is a leak, which shows up only under `-DSANITIZE=address`.
-
-### 1. Caching a path twice leaks the body that loses
-
-> no test — a leak does not change the response, so it takes
-> `-DSANITIZE=address` to see. Reproduced by
-> `cache::storing_a_path_twice_keeps_the_first_body` under ASan
-
-`cache.h` says the cache takes ownership of `content`. When the path is already
-present, [`cache()`](src/cache.c:41) returns early and drops the pointer without
-freeing it, so nobody does.
-
-Single-threaded this only fires if something stores the same path twice. Under
-concurrency it fires on its own: two connections that both miss the same path both
-read the file and both call `cache()`, and the loser's buffer leaks.
-
----
-
 ## Accepted limits
 
 These are deliberate. The server is a development server; it is not trying to be
