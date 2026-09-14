@@ -6,14 +6,6 @@
 
 static char *version = "v1.1.0";
 
-long get_file_size(FILE *fptr)
-{
-    fseek(fptr, 0, SEEK_END);
-    long size = ftell(fptr);
-    rewind(fptr);
-    return size;
-}
-
 char *read_file(const char *path, size_t *out_len)
 {
     struct stat st;
@@ -57,16 +49,6 @@ char *get_file_suffix(char *path)
     }
 
     return dot;
-}
-
-void lower_case(char *path)
-{
-    for (int i = 0; path[i] != '\0'; i++)
-    {
-        path[i] = path[i] <= 'z' && path[i] >= 'a'
-                      ? path[i]
-                      : path[i] + 'A' - 'a';
-    }
 }
 
 void print_program_name()

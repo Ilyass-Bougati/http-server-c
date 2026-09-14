@@ -21,4 +21,14 @@ typedef struct http_response_basic_headers
  */
 char *basic_header_to_string(basic_headers header);
 
+/*
+ * Maps a filename suffix to the Content-Type to send for it.
+ * suffix: the suffix including its dot, for example ".css", as returned by
+ *         get_file_suffix. Matched without regard to case, so ".PNG" and
+ *         ".png" are the same. May be NULL.
+ * Returns a pointer to a string literal owned by the program: read it, never
+ * modify or free it. Anything unrecognised or NULL comes back as
+ * application/octet-stream, which tells the browser to download the body
+ * rather than guess at what it is.
+ */
 char *content_type_from_suffix(char *suffix);

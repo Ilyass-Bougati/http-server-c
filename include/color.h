@@ -1,5 +1,17 @@
 #pragma once
 
+/*
+ * ANSI escape sequences for colouring terminal output, as string literals meant
+ * to be concatenated into a format string:
+ *
+ *     printf(ANSI_BOLD ANSI_FG_RED "failed" ANSI_RESET "\n");
+ *     printf(A_RED("failed") "\n");          // same thing, self-closing
+ *
+ * Defining ANSI_DISABLE, or the conventional NO_COLOR, makes every sequence
+ * expand to an empty string, so the same format strings produce plain output
+ * with no other change.
+ */
+
 #if defined(ANSI_DISABLE) || defined(NO_COLOR)
 #define ANSI_(seq) ""
 #else

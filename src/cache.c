@@ -11,6 +11,14 @@ static site_page **site_cache = NULL;
 static int cache_size = 0;
 static pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
 
+/*
+ * Copies `len` bytes of `content` onto the heap for the cache to keep.
+ * content: bytes to copy; may hold NUL bytes, so it is not treated as a string.
+ * len:     how many bytes to copy.
+ * Returns a heap buffer of exactly `len` bytes, with no terminating NUL. It is
+ * a byte buffer and not a C string, so read it with its length and never with
+ * strlen, strdup or any other str* function.
+ */
 static char *copy_content(char *content, int len)
 {
     char *copy = (char *)calloc(sizeof(char), len);
@@ -25,8 +33,8 @@ static char *copy_content(char *content, int len)
  * Reports whether `hash` currently has an entry in the cache.
  * hash: the hashed file path used as the cache key.
  * Returns true if a matching entry exists, false otherwise.
- * The difference between this and is_cached(char*), is that
- * this one doesn't lock the cache
+ * Assumes the caller already holds the cache mutex, which is why it does not
+ * take it itself: every caller is already inside the locked section.
  */
 static bool is_cached_hash(Fnv32_t hash)
 {
@@ -68,23 +76,6 @@ void cache(char *path, char *content, long len)
     pthread_mutex_unlock(&m);
 
     LOG_D("cached %s (hash %lu)", path, (unsigned long)page->hash);
-}
-
-bool is_cached(char *path)
-{
-    Fnv32_t hash = hash_str(path);
-    pthread_mutex_lock(&m);
-    for (int i = 0; i < cache_size; i++)
-    {
-        if (hash == site_cache[i]->hash)
-        {
-            pthread_mutex_unlock(&m);
-            return true;
-        }
-    }
-
-    pthread_mutex_unlock(&m);
-    return false;
 }
 
 site_page *get_cached(char *path)

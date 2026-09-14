@@ -30,7 +30,6 @@ static void store(char *path, const void *data, size_t len)
 Test(cache, a_path_that_was_never_stored_is_a_miss)
 {
     cr_assert_null(get_cached("./site/index.html"));
-    cr_assert(!is_cached("./site/index.html"));
 }
 
 Test(cache, stores_and_returns_content)
@@ -38,8 +37,6 @@ Test(cache, stores_and_returns_content)
     char *path = "./site/index.html";
     const char *body = "<h1>index</h1>";
     store(path, body, strlen(body));
-
-    cr_assert(is_cached(path));
 
     site_page *got = get_cached(path);
     cr_assert_not_null(got);

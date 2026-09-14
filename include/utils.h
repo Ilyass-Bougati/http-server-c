@@ -2,16 +2,15 @@
 #include "stdio.h"
 
 /*
- * Measures an open file by seeking to its end.
- * fptr: an open, seekable stream. It is rewound to the start before return,
- *       so the caller can read it from the beginning.
- * Returns the size in bytes, or -1 if the position cannot be determined.
+ * Finds the suffix of the file named by `path`, including its dot.
+ * path: the path to examine, NUL-terminated.
+ * Returns a pointer into `path` at the dot, or NULL when there is no suffix:
+ * no dot in the last path segment, a dot that opens the file name
+ * (".gitignore" is a name, not a suffix), or a trailing dot. Nothing is
+ * allocated, so nothing needs freeing -- and freeing the result would be a
+ * free of an interior pointer. It stays valid as long as `path` does.
  */
-long get_file_size(FILE *fptr);
-
 char *get_file_suffix(char *path);
-
-void lower_case(char *path);
 
 /*
  * Reads a whole file into memory.
@@ -24,4 +23,11 @@ void lower_case(char *path);
  */
 char *read_file(const char *path, size_t *out_len);
 
+/*
+ * Writes the startup banner -- the program name as ASCII art plus its version
+ * -- to stderr.
+ * Takes no arguments.
+ * Returns nothing. Goes to stderr rather than stdout so that redirecting the
+ * server's output does not capture it.
+ */
 void print_program_name();
