@@ -16,10 +16,6 @@ nginx, and none of the below is worth the code it would cost.
 
 ### Security
 
-- Nothing keeps the served path inside `site/`. `global_req_handler()`
-  concatenates the request path onto `SITE_DIR` and calls `stat`, so
-  `GET /../server.c` returns the source file, and every regular file the process
-  can read is reachable the same way.
 - Nothing resists a client trying to be expensive: no request rate limit, no
   timeouts, no cap on threads.
 
