@@ -8,3 +8,4 @@ compile_commands.json
 tsan.*
 test-program.c
 test-program
+report.html

@@ -9,8 +9,8 @@ export const options = {
     // Steady concurrency — baseline correctness under load.
     steady: {
       executor: 'constant-vus',
-      vus: 50,
-      duration: '30s',
+      vus: 250,
+      duration: '150s',
     },
     // Burst — many connections arriving in the same instant.
     // This is what reproduces accept-loop and shared-buffer races.
@@ -18,9 +18,9 @@ export const options = {
       executor: 'constant-arrival-rate',
       rate: 200,
       timeUnit: '1s',
-      duration: '30s',
+      duration: '120s',
       preAllocatedVUs: 100,
-      maxVUs: 400,
+      maxVUs: 500,
       startTime: '30s',
     },
   },
@@ -31,7 +31,7 @@ export const options = {
   },
 };
 
-const BASE = __ENV.BASE || 'http://localhost:8080';
+const BASE = __ENV.BASE || 'http://locahost:8080';
 
 // Short timeout: a hang must surface as a failed request, not a stalled VU.
 const PARAMS = { timeout: '3s' };

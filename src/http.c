@@ -59,7 +59,8 @@ void parse_request(int client_fd)
         }
         buff[0] = '\0';
 
-        char *myPtr = strtok(path, "/");
+        char *saveptr = NULL;
+        char *myPtr = strtok_r(path, "/", &saveptr);
         while (myPtr != NULL)
         {
             if (strcmp(myPtr, "..") != 0)
@@ -78,7 +79,7 @@ void parse_request(int client_fd)
                 strcat(buff, "/");
                 strcat(buff, myPtr);
             }
-            myPtr = strtok(NULL, "/");
+            myPtr = strtok_r(NULL, "/", &saveptr);
         }
 
         for (size_t i = 0; i < strlen(buff); i++)
