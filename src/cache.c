@@ -11,6 +11,16 @@ static site_page **site_cache = NULL;
 static int cache_size = 0;
 static pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
 
+static char *copy_content(char *content, int len)
+{
+    char *copy = (char *)calloc(sizeof(char), len);
+    for (int i = 0; i < len; i++)
+    {
+        copy[i] = content[i];
+    }
+    return copy;
+}
+
 /*
  * Reports whether `hash` currently has an entry in the cache.
  * hash: the hashed file path used as the cache key.
@@ -44,7 +54,7 @@ void cache(char *path, char *content, long len)
 
     site_page *page = (site_page *)malloc(sizeof(site_page));
     page->hash = hash;
-    page->site_content = content;
+    page->site_content = copy_content(content, len);
     page->len = len;
 
     site_cache = (site_page **)realloc(site_cache, (cache_size + 1) * sizeof(site_page *));

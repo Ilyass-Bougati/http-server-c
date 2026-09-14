@@ -42,6 +42,7 @@ void send_http_static_page_response(http_request *req, http_static_page_response
         content = read_file(path, &out_len);
         if (content == NULL)
         {
+            free(content);
             send_http_not_found_page_response(req, res);
             return;
         }
@@ -72,6 +73,10 @@ void send_http_static_page_response(http_request *req, http_static_page_response
     {
         free(page);
     }
+    else
+    {
+        free(content);
+    }
     free(formatted_header);
 }
 
@@ -82,6 +87,7 @@ void send_http_not_found_page_response(http_request *req, http_static_page_respo
     char *path = NOT_FOUND_PATH;
     site_page *page = get_cached(path);
     bool cache_hit = (page != NULL);
+    bool skip_free = false;
 
     if (cache_hit)
     {
@@ -94,6 +100,8 @@ void send_http_not_found_page_response(http_request *req, http_static_page_respo
         content = read_file(path, &out_len);
         if (content == NULL)
         {
+            free(content);
+            skip_free = true;
             content = NOT_FOUND_HTML;
             out_len = strlen(content);
         }
@@ -122,6 +130,10 @@ void send_http_not_found_page_response(http_request *req, http_static_page_respo
     if (cache_hit)
     {
         free(page);
+    }
+    else if (!skip_free)
+    {
+        free(content);
     }
     free(formatted_header);
 }
