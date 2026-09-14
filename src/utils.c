@@ -4,7 +4,7 @@
 #include "color.h"
 #include <string.h>
 
-static char *version = "v1.0.1";
+static char *version = "v1.1.0";
 
 long get_file_size(FILE *fptr)
 {
