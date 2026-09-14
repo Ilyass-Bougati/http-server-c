@@ -15,5 +15,6 @@ ENV LOG_LEVEL=INFO
 WORKDIR /
 COPY --from=build /src/build/sefaultd /usr/local/bin/sefaultd
 COPY site /site
+COPY logs /logs
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/sefaultd", "-p", "8080"]

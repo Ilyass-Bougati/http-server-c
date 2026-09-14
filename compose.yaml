@@ -1,0 +1,8 @@
+services:
+  app:
+    build: .
+    container_name: sefaultd
+    volumes:
+      - ./logs:/logs
+    ports:
+      - "8080:8080"

@@ -33,6 +33,7 @@ void parse_request(int client_fd)
     char *path = (char *)calloc(sizeof(char), 2048);
     sscanf(request_string, "%7s %2047s %7s", req->method, path, req->version);
     req->client_fd = client_fd;
+
     // removing any path variables
     size_t buff_size = 1;
     char *buff = malloc(buff_size);

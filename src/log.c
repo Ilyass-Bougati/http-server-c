@@ -1,9 +1,11 @@
 #include "log.h"
 #include "color.h"
 #include <stdio.h>
+#include <stdbool.h>
 
 log_level log_min = LOG_INFO;
 FILE *log_file = NULL;
+bool log_file_error = false;
 
 void change_log_level(log_level level)
 {
@@ -16,7 +18,12 @@ void log_write(log_level lvl, const char *file, int line,
 
     if (log_file == NULL)
     {
-        log_file = fopen("server.log", "a");
+        log_file = fopen(LOG_PATH, "a");
+        if (log_file == NULL)
+        {
+            log_file_error = true;
+            LOG_E("Error opening logs");
+        }
     }
     static const char *names[] = {"[DEBUG]" ANSI_RESET,
                                   "[INFO]" ANSI_RESET,
@@ -44,6 +51,9 @@ void log_write(log_level lvl, const char *file, int line,
     strftime(ts, sizeof ts, "%Y-%m-%d %H:%M:%S", &tm);
 
     fprintf(stderr, "%s %s %s %s:%d: %s\n", colors[lvl], ts, names[lvl], file, line, msg);
-    fprintf(log_file, "%s %s %s %s:%d: %s\n", colors[lvl], ts, names[lvl], file, line, msg);
-    fflush(log_file);
+    if (!log_file_error)
+    {
+        fprintf(log_file, "%s %s %s %s:%d: %s\n", colors[lvl], ts, names[lvl], file, line, msg);
+        fflush(log_file);
+    }
 }
