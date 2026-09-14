@@ -34,17 +34,52 @@ void parse_request(int client_fd)
     sscanf(request_string, "%7s %2047s %7s", req->method, path, req->version);
     req->client_fd = client_fd;
     // removing any path variables
-    for (size_t i = 0; i < strlen(path); i++)
+    size_t buff_size = 1;
+    char *buff = malloc(buff_size);
+    if (buff == NULL)
     {
-        if (path[i] == '\0' || path[i] == '?')
+        free(path);
+        LOG_E("Couldn't allocate buffer");
+        return;
+    }
+    buff[0] = '\0';
+
+    char *myPtr = strtok(path, "/");
+    while (myPtr != NULL)
+    {
+        if (strcmp(myPtr, "..") != 0)
+        {
+            buff_size += strlen(myPtr) + 1;
+            char *tmp = realloc(buff, buff_size);
+            if (tmp == NULL)
+            {
+                free(buff);
+                free(path);
+                LOG_E("Couldn't reallocating buffer");
+                return;
+            }
+            buff = tmp;
+
+            strcat(buff, "/");
+            strcat(buff, myPtr);
+        }
+        myPtr = strtok(NULL, "/");
+    }
+
+    printf("%s\n", buff);
+
+    for (size_t i = 0; i < strlen(buff); i++)
+    {
+        if (buff[i] == '\0' || buff[i] == '?')
         {
             req->path[i] = '\0';
             break;
         }
-        req->path[i] = path[i];
+        req->path[i] = buff[i];
     }
 
     free(path);
+    free(buff);
     log_http_req(req);
     global_req_handler(req);
     free(request_string);
