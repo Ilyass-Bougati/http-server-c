@@ -14,7 +14,7 @@ void render_page(http_request *req, int status_code, char *path)
 {
     http_static_page_response *res;
     res = create_response(status_code, path);
-    send_http_static_page_response(req, res);
+    send_file_response(req, res);
 }
 
 void render_not_found_page(http_request *req)

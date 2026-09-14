@@ -22,7 +22,7 @@ void log_write(log_level lvl, const char *file, int line,
         if (log_file == NULL)
         {
             log_file_error = true;
-            LOG_E("Error opening logs");
+            fprintf(stderr, "log: cannot open %s\n", LOG_PATH);
         }
     }
     static const char *names[] = {"[DEBUG]" ANSI_RESET,

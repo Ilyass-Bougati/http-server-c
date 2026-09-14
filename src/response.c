@@ -137,3 +137,62 @@ void send_http_not_found_page_response(http_request *req, http_static_page_respo
     }
     free(formatted_header);
 }
+
+void send_file_response(http_request *req, http_static_page_response *res)
+{
+    char *content;
+    size_t out_len;
+    char *path = res->path;
+    site_page *page = get_cached(path);
+    bool cache_hit = (page != NULL);
+
+    if (cache_hit)
+    {
+        content = page->site_content;
+        out_len = page->len;
+        LOG_D("Cache hit (len: %lu)", out_len);
+    }
+    else
+    {
+        content = read_file(path, &out_len);
+        if (content == NULL)
+        {
+            free(content);
+            send_http_not_found_page_response(req, res);
+            return;
+        }
+        cache(path, content, out_len);
+    }
+
+    // sending the simple HTTP header
+    char *suffix = get_file_suffix(path);
+    basic_headers headers = {
+        .content_length = out_len,
+        .content_type = content_type_from_suffix(suffix),
+        .status_code = res->status_code,
+        .status_text = ""};
+
+    char *formatted_header = basic_header_to_string(headers);
+    if (write(req->client_fd, formatted_header, strlen(formatted_header)) < -1)
+    {
+        LOG_E("Error writing response header to client fd");
+    }
+
+    if (write(req->client_fd, content, out_len) < -1)
+    {
+        LOG_E("Error writing response content to client fd");
+    }
+
+    free(req);
+    free(res);
+    // free(suffix);
+    if (cache_hit)
+    {
+        free(page);
+    }
+    else
+    {
+        free(content);
+    }
+    free(formatted_header);
+}

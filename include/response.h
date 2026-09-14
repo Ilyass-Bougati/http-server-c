@@ -56,3 +56,5 @@ void free_response(http_static_page_response *res);
 void send_http_static_page_response(http_request *req, http_static_page_response *res);
 
 void send_http_not_found_page_response(http_request *req, http_static_page_response *res);
+
+void send_file_response(http_request *req, http_static_page_response *res);

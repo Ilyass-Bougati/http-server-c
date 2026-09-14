@@ -9,6 +9,10 @@
  */
 long get_file_size(FILE *fptr);
 
+char *get_file_suffix(char *path);
+
+void lower_case(char *path);
+
 /*
  * Reads a whole file into memory.
  * path:    path of the file to read; must be an existing regular file.

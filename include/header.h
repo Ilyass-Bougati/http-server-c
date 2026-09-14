@@ -4,10 +4,11 @@
  * The minimal set of response header values this server emits: the status
  * line pair (code and reason text) plus Content-Type and Content-Length.
  */
-typedef struct http_response_basic_headers {
+typedef struct http_response_basic_headers
+{
     int status_code;
-    char* status_text;
-    char* content_type;
+    char *status_text;
+    char *content_type;
     long content_length;
 } basic_headers;
 
@@ -19,3 +20,5 @@ typedef struct http_response_basic_headers {
  * Output longer than the internal 1024-byte limit is truncated.
  */
 char *basic_header_to_string(basic_headers header);
+
+char *content_type_from_suffix(char *suffix);
