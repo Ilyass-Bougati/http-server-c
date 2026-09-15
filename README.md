@@ -16,7 +16,7 @@ the k6 load test — is in [DEVELOPMENT.md](DEVELOPMENT.md).
 ### Pull the published image
 
 Images are published to GitHub Container Registry from `v*` tags. `latest` tracks
-the newest release, and each release also gets its version as a tag (`1.0.0`).
+the newest release, each release also gets its version as a tag (`1.0.0`).
 
 ```bash
 docker run --rm -p 8080:8080 ghcr.io/ilyass-bougati/sefaultd:latest
