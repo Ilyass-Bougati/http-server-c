@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0)
     {
-        perror("socket");
+        perror("error creating socket");
         exit(EXIT_FAILURE);
     }
 
